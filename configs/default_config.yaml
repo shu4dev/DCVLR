@@ -1,0 +1,101 @@
+# Team-1 Data Synthesis Pipeline Configuration
+
+# Image Filtering Settings
+filtering:
+  min_resolution: 256           # Minimum image width/height in pixels
+  nsfw_threshold: 0.5           # NSFW detection threshold (0-1, lower is stricter)
+  phash_threshold: 8            # Perceptual hash threshold for duplicate detection
+  enable_watermark_check: true  # Enable watermark detection
+  watermark_edge_ratio: 0.3     # Edge ratio threshold for watermark detection
+
+# Image Binning Settings
+binning:
+  text_boxes_threshold: 2       # Min text boxes for Bin A (Text/Arithmetic)
+  text_area_threshold: 0.2      # Min text area ratio for Bin A
+  object_count_threshold: 5     # Min objects for Bin B (Object/Spatial)
+  unique_objects_threshold: 3   # Min unique object types for Bin B
+  clip_similarity_threshold: 0.25  # Min CLIP similarity for Bin C validation
+  spatial_dispersion_threshold: 0.5  # Spatial dispersion threshold
+
+# Q/A Synthesis Settings
+synthesis:
+  llm_model: "tiiuae/falcon-7b-instruct"  # LLM model for Q/A generation
+  max_tokens: 512              # Max tokens for generation
+  temperature: 0.7             # Sampling temperature
+  top_p: 0.9                  # Nucleus sampling parameter
+  do_sample: true             # Enable sampling
+  num_templates_per_bin: 5    # Number of prompt templates per bin
+  batch_size: 1               # Batch size for generation
+  
+  # Feature extraction settings
+  ocr_lang: "en"              # OCR language
+  use_angle_cls: true         # Enable angle classification in OCR
+  yolo_model: "yolov8n.pt"    # YOLO model for object detection
+  blip_model: "Salesforce/blip-image-captioning-base"  # BLIP model for captioning
+  clip_model: "ViT-B-32"      # CLIP model for similarity
+
+# Validation Settings
+validation:
+  min_question_length: 5       # Minimum words in question
+  min_answer_length: 1         # Minimum words in answer
+  min_reasoning_length: 10     # Minimum words in reasoning
+  similarity_threshold: 0.9    # Text similarity threshold for duplicates
+  enable_grounding_check: true # Enable source grounding validation
+  enable_math_check: true      # Enable arithmetic validation
+  math_tolerance: 1e-6        # Tolerance for math answer checking
+
+# Benchmarking Settings
+benchmarking:
+  model: "Salesforce/blip2-flan-t5-xl-coco"  # VLM model for fine-tuning
+  train_batch_size: 4         # Training batch size
+  eval_batch_size: 8          # Evaluation batch size
+  num_epochs: 5               # Number of training epochs
+  learning_rate: 1e-5         # Learning rate
+  warmup_steps: 100           # Warmup steps
+  fp16: true                  # Enable mixed precision training
+  gradient_accumulation: 2    # Gradient accumulation steps
+  
+  # Benchmark datasets
+  benchmarks:
+    - textvqa
+    - docvqa
+    - chartqa
+  
+  # Evaluation settings
+  max_answer_length: 20       # Max tokens for answer generation
+  beam_search: true           # Enable beam search
+  num_beams: 5               # Number of beams for search
+
+# Hardware Settings
+device:
+  cuda_device: 0              # CUDA device index
+  cpu_threads: 4              # Number of CPU threads
+  mixed_precision: true       # Enable mixed precision
+  
+# Logging Settings
+logging:
+  level: "INFO"               # Logging level
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  file: "pipeline.log"        # Log file name
+  console: true               # Enable console logging
+
+# Output Settings
+output:
+  save_intermediate: true     # Save intermediate results
+  compression: "gzip"         # Compression for saved files
+  formats:
+    - jsonl                   # Output formats
+    - csv
+  
+# Data Settings
+data:
+  image_extensions:           # Supported image extensions
+    - .jpg
+    - .jpeg
+    - .png
+    - .gif
+    - .bmp
+    - .webp
+  
+  max_images_per_batch: 100   # Max images to process per batch
+  shuffle: true               # Shuffle images before processing
