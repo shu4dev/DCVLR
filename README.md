@@ -40,8 +40,8 @@ team1-data-synthesis/
 
 ## Installation
 ```bash
-git clone https://github.com/<your-org>/team1-data-synthesis.git
-cd team1-data-synthesis
+git clone https://github.com/shu4dev/DCVLR.git
+cd DCVLR
 
 # Optional but recommended: create an isolated environment
 python -m venv .venv
@@ -138,15 +138,3 @@ Running the pipeline creates an output directory (default `output/`) containing:
 - `pipeline_results.json` – summary counts and benchmark scores.
 - `pipeline.log` – per-stage logs produced by `setup_logging`.
 You can supply your own directory via the `output_dir` argument to keep multiple runs.
-
-## Development & Testing
-```bash
-pip install -e .[dev]
-pytest          # run unit tests (add cases under tests/)
-black .         # format
-flake8 src/     # lint
-```
-The `tests/` directory currently contains placeholders – add unit tests alongside new modules. When extending the pipeline, prefer small mocks for GPU-heavy components so CI can run without specialized hardware.
-
-## License
-Distributed under the MIT License (see `LICENSE`). If you publish work using this implementation, please reference the Team-1 methodology described in `Implmentation.pdf`.

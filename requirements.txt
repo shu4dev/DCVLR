@@ -1,56 +1,56 @@
 # Core dependencies
-torch>=1.12.0
-torchvision>=0.13.0
-transformers>=4.30.0
-datasets>=2.10.0
-accelerate>=0.20.0
+torch
+torchvision
+transformers
+datasets
+accelerate
 
 # Vision and OCR
-paddlepaddle>=2.4.0
-paddleocr>=2.6.0
-ultralytics>=8.0.0
-opencv-python>=4.7.0
-Pillow>=9.4.0
+paddlepaddle
+paddleocr
+ultralytics
+opencv-python
+Pillow
 
 # LLM and NLP
-falcon-7b>=0.1.0
-sentencepiece>=0.1.97
-protobuf>=3.20.0
-tokenizers>=0.13.0
+sentencepiece
+protobuf
+tokenizers
 
 # Image processing
-imagehash>=4.3.1
-nsfw-image-detector>=1.0.0
+imagehash
+nsfw-image-detector
 
 # CLIP and vision models
-open-clip-torch>=2.20.0
-timm>=0.9.0
+open-clip-torch
+timm
 
 # Utilities
-numpy>=1.23.0
-pandas>=1.5.0
-scikit-learn>=1.2.0
-matplotlib>=3.6.0
-seaborn>=0.12.0
-tqdm>=4.65.0
-pyyaml>=6.0
-jsonlines>=3.1.0
+numpy
+pandas
+scikit-learn
+matplotlib
+seaborn
+tqdm
+pyyaml
+jsonlines
 
 # Evaluation
-pycocotools>=2.0.6
-rapidfuzz>=3.0.0
+pycocotools
+rapidfuzz
 
 # Development
-pytest>=7.2.0
-pytest-cov>=4.0.0
-black>=23.0.0
-flake8>=6.0.0
-mypy>=1.0.0
+pytest
+pytest-cov
+black
+flake8
+mypy
 
 # Optional: For limited GPU resources
-peft>=0.4.0
-bitsandbytes>=0.40.0
+peft
+bitsandbytes
 
 # Jupyter support
-jupyter>=1.0.0
-ipywidgets>=8.0.0
+jupyter
+ipywidgets
+ipykernel

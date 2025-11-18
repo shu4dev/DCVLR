@@ -51,14 +51,13 @@ class ImageBinner:
             self.ocr = PaddleOCR(
                 lang='en',
                 use_angle_cls=True,
-                show_log=False
             )
             
             # Object detection
             self.yolo = YOLO('yolov8n.pt')
             
             # CLIP for caption similarity
-            self.clip_model, self.clip_preprocess = open_clip.create_model_and_transforms(
+            self.clip_model, _, self.clip_preprocess = open_clip.create_model_and_transforms(
                 'ViT-B-32',
                 pretrained='openai'
             )

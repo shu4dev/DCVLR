@@ -11,8 +11,8 @@ import logging
 import numpy as np
 from PIL import Image
 import imagehash
-from nsfw_detector import NSFWDetector
 import cv2
+import torch
 
 logger = logging.getLogger(__name__)
 
@@ -38,9 +38,14 @@ class ImageFilter:
         self.nsfw_threshold = config.get('nsfw_threshold', 0.5)
         self.phash_threshold = config.get('phash_threshold', 8)
         
-        # Initialize NSFW detector
+        # Initialize NSFW detector using AdamCodd/vit-base-nsfw-detector
         try:
-            self.nsfw_detector = NSFWDetector()
+            from transformers import pipeline
+            self.nsfw_detector = pipeline(
+                "image-classification",
+                model="AdamCodd/vit-base-nsfw-detector",
+                device=0 if torch.cuda.is_available() else -1
+            )
         except Exception as e:
             logger.warning(f"Could not initialize NSFW detector: {e}")
             self.nsfw_detector = None
@@ -70,21 +75,32 @@ class ImageFilter:
     def check_nsfw(self, image_path: str) -> bool:
         """
         Check if image contains NSFW content.
-        
+
         Args:
             image_path: Path to the image file
-            
+
         Returns:
             True if image is safe (not NSFW)
         """
         if not self.nsfw_detector:
             # If detector not available, assume safe
             return True
-        
+
         try:
             with Image.open(image_path) as img:
-                is_nsfw = self.nsfw_detector.is_nsfw(img)
-                return not is_nsfw
+                # Convert to RGB if necessary
+                if img.mode != 'RGB':
+                    img = img.convert('RGB')
+
+                # Get predictions from the model
+                results = self.nsfw_detector(img)
+
+                # Check for NSFW label
+                for result in results:
+                    if result['label'].lower() == 'nsfw' and result['score'] > self.nsfw_threshold:
+                        return False  # Image is NSFW
+
+                return True  # Image is safe
         except Exception as e:
             logger.warning(f"Error checking NSFW for {image_path}: {e}")
             # In case of error, be conservative and filter out
