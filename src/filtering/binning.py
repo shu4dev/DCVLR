@@ -5,6 +5,7 @@ Image binning module for categorizing images into Text/Object/Commonsense bins.
 import logging
 from typing import Dict, List, Optional, Tuple
 from pathlib import Path
+import sys
 
 import numpy as np
 from PIL import Image
@@ -16,6 +17,10 @@ from transformers import BlipProcessor, BlipForConditionalGeneration, Blip2Proce
 import pandas as pd
 import time
 import re
+
+# Add parent directory to path for imports
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+from src.utils.gpu_utils import GPUManager
 
 logger = logging.getLogger(__name__)
 
@@ -50,21 +55,50 @@ class ImageBinner:
         self.enable_multi_yolo = config.get('enable_multi_yolo', False)
         self.yolo_models_list = config.get('yolo_models', ['yolov8n'])
 
+        # GPU configuration
+        self.enable_multi_gpu = config.get('enable_multi_gpu', True)  # Auto-detect and use multiple GPUs
+        self.gpu_manager = GPUManager()
+
         # Initialize models
         self._init_models()
     
     def _init_models(self):
         """Initialize required models for binning."""
         try:
+            # Get optimal device distribution
+            if self.enable_multi_gpu:
+                device_map = self.gpu_manager.get_model_distribution()
+                logger.info(f"Multi-GPU enabled with {self.gpu_manager.num_gpus} GPU(s)")
+                logger.info(f"Model distribution: {device_map}")
+            else:
+                # Use single device
+                single_device = "cuda:0" if torch.cuda.is_available() else "cpu"
+                device_map = {
+                    'ocr': single_device,
+                    'yolo': single_device,
+                    'clip': single_device,
+                    'blip': single_device
+                }
+                logger.info(f"Single device mode: {single_device}")
+
             # OCR for text detection - using DeepSeekOCR
+            ocr_device = device_map['ocr']
+            logger.info(f"Loading DeepSeek-OCR on {ocr_device}...")
             ocr_config = OCRConfig(
-                device="cuda:0" if torch.cuda.is_available() else "cpu",
+                device=ocr_device,
                 crop_mode=True,
                 model_size=self.config.get('deepseek_model_size', 'tiny')  # Use 'tiny' by default for memory efficiency
             )
             self.ocr = DeepSeekOCR(config=ocr_config)
+            logger.info(f"DeepSeek-OCR loaded successfully on {ocr_device}")
+
+            # Clear cache after loading OCR (frees up memory on other GPUs)
+            if self.gpu_manager.num_gpus > 1:
+                self.gpu_manager.clear_cache()
 
             # Object detection - Multi-YOLO support
+            yolo_device = device_map['yolo']
+            logger.info(f"Loading YOLO on {yolo_device}...")
             if self.enable_multi_yolo:
                 self.yolo_models = {}
                 model_mapping = {
@@ -77,44 +111,66 @@ class ImageBinner:
                 for model_name in self.yolo_models_list:
                     if model_name in model_mapping:
                         self.yolo_models[model_name] = YOLO(model_mapping[model_name])
-                        logger.info(f"Loaded {model_name}")
+                        # Move to appropriate device
+                        if yolo_device != "cpu":
+                            self.yolo_models[model_name].to(yolo_device)
+                        logger.info(f"Loaded {model_name} on {yolo_device}")
 
                 # Set default YOLO model
                 self.yolo = self.yolo_models[self.yolo_models_list[0]]
             else:
                 # Single YOLO model (default: v8n for speed)
                 self.yolo = YOLO('yolov8n.pt')
+                if yolo_device != "cpu":
+                    self.yolo.to(yolo_device)
+                logger.info(f"YOLO loaded on {yolo_device}")
+
+            # Store device for YOLO inference
+            self.yolo_device = yolo_device
 
             # CLIP for caption similarity
+            clip_device = device_map['clip']
+            logger.info(f"Loading CLIP on {clip_device}...")
             self.clip_model, _, self.clip_preprocess = open_clip.create_model_and_transforms(
                 'ViT-B-32',
                 pretrained='openai'
             )
             self.clip_tokenizer = open_clip.get_tokenizer('ViT-B-32')
+            # Move CLIP to appropriate device
+            if clip_device != "cpu":
+                self.clip_model = self.clip_model.to(clip_device)
+            self.clip_device = clip_device
+            logger.info(f"CLIP loaded on {clip_device}")
 
             # BLIP for captioning - support both BLIP and BLIP-2
+            blip_device = device_map['blip']
+            logger.info(f"Loading BLIP on {blip_device}...")
             if self.use_blip2:
                 # BLIP-2 for higher quality captions
-                self.device = torch.device("cuda") if torch.cuda.is_available() else "cpu"
                 self.blip_processor = Blip2Processor.from_pretrained("Salesforce/blip2-opt-2.7b")
                 self.blip_model = Blip2ForConditionalGeneration.from_pretrained(
                     "Salesforce/blip2-opt-2.7b",
-                    torch_dtype=torch.float16 if torch.cuda.is_available() else torch.float32
+                    torch_dtype=torch.float16 if "cuda" in blip_device else torch.float32
                 )
-                self.blip_model.to(self.device)
-                logger.info("Loaded BLIP-2 model")
+                self.blip_model.to(blip_device)
+                logger.info(f"BLIP-2 loaded on {blip_device}")
             else:
                 # BLIP-base for faster processing
-                self.device = torch.device("cpu")
                 self.blip_processor = BlipProcessor.from_pretrained(
                     "Salesforce/blip-image-captioning-base"
                 )
                 self.blip_model = BlipForConditionalGeneration.from_pretrained(
                     "Salesforce/blip-image-captioning-base"
                 )
-                logger.info("Loaded BLIP-base model")
+                self.blip_model.to(blip_device)
+                logger.info(f"BLIP-base loaded on {blip_device}")
+
+            self.blip_device = blip_device
 
             logger.info("All models initialized successfully")
+
+            # Print memory summary
+            self.gpu_manager.print_memory_summary()
 
         except Exception as e:
             logger.error(f"Error initializing models: {e}")
@@ -255,14 +311,14 @@ class ImageBinner:
             if self.use_blip2:
                 # BLIP-2 processing
                 inputs = self.blip_processor(images=image, return_tensors="pt").to(
-                    self.device,
-                    torch.float16 if torch.cuda.is_available() else torch.float32
+                    self.blip_device,
+                    torch.float16 if "cuda" in self.blip_device else torch.float32
                 )
                 generated_ids = self.blip_model.generate(**inputs)
                 caption = self.blip_processor.batch_decode(generated_ids, skip_special_tokens=True)[0].strip()
             else:
                 # BLIP-base processing
-                inputs = self.blip_processor(image, return_tensors="pt")
+                inputs = self.blip_processor(image, return_tensors="pt").to(self.blip_device)
                 out = self.blip_model.generate(**inputs, max_new_tokens=50)
                 caption = self.blip_processor.decode(out[0], skip_special_tokens=True)
 
@@ -274,36 +330,36 @@ class ImageBinner:
     def calculate_clip_similarity(self, image_path: str, caption: str) -> float:
         """
         Calculate CLIP similarity between image and caption.
-        
+
         Args:
             image_path: Path to the image file
             caption: Text caption to compare
-            
+
         Returns:
             Cosine similarity score
         """
         try:
             # Load and preprocess image
             image = Image.open(image_path).convert('RGB')
-            img_tensor = self.clip_preprocess(image).unsqueeze(0)
-            
+            img_tensor = self.clip_preprocess(image).unsqueeze(0).to(self.clip_device)
+
             # Tokenize caption
-            text_tokens = self.clip_tokenizer([caption])
-            
+            text_tokens = self.clip_tokenizer([caption]).to(self.clip_device)
+
             # Get embeddings
             with torch.no_grad():
                 img_emb = self.clip_model.encode_image(img_tensor)
                 text_emb = self.clip_model.encode_text(text_tokens)
-                
+
                 # Normalize embeddings
                 img_emb /= img_emb.norm(dim=-1, keepdim=True)
                 text_emb /= text_emb.norm(dim=-1, keepdim=True)
-                
+
                 # Calculate cosine similarity
                 similarity = (img_emb @ text_emb.T).item()
-            
+
             return similarity
-            
+
         except Exception as e:
             logger.warning(f"Error calculating CLIP similarity for {image_path}: {e}")
             return 0.0

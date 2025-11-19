@@ -20,6 +20,12 @@ binning:
   # DeepSeek-OCR model settings
   deepseek_model_size: 'tiny'   # Model size: 'tiny', 'small', 'base', 'large' (tiny uses least memory)
 
+  # Multi-GPU settings
+  enable_multi_gpu: true        # Auto-detect and distribute models across multiple GPUs
+                                # With 1 GPU: all models on cuda:0
+                                # With 2 GPUs: OCR on cuda:0, other models on cuda:1
+                                # With 3+ GPUs: OCR on cuda:0, YOLO on cuda:1, CLIP/BLIP on cuda:2
+
   # Enhanced model options (merged from blip2.py and yolov11-filter.py)
   use_blip2: false              # Use BLIP-2 for higher quality captions (requires more GPU memory)
   enable_multi_yolo: false      # Enable multi-YOLO benchmarking
