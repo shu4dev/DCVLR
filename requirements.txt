@@ -6,7 +6,11 @@ datasets
 accelerate
 
 # Vision and OCR
-deep-ocr
+# Both OCR backends installed: DeepSeek (primary) with PaddleOCR (fallback)
+# If DeepSeek-OCR fails due to OOM, code automatically falls back to PaddleOCR
+deep-ocr                      # Primary: Heavy OCR backend (~10GB VRAM, high accuracy)
+paddleocr>=2.7.0              # Fallback: Lightweight OCR backend (~200MB VRAM)
+paddlepaddle-gpu>=2.5.0       # GPU support for PaddleOCR
 ultralytics
 opencv-python
 Pillow

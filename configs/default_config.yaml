@@ -17,7 +17,12 @@ binning:
   clip_similarity_threshold: 0.25  # Min CLIP similarity for Bin C validation
   spatial_dispersion_threshold: 0.3  # Spatial dispersion threshold for complexity filtering
 
-  # DeepSeek-OCR model settings
+  # OCR Backend Selection
+  use_paddle_ocr: true          # true = PaddleOCR (lightweight, ~200MB), false = DeepSeek-OCR (heavy, ~10GB)
+                                # If use_paddle_ocr: false and DeepSeek fails (OOM), automatically falls back to PaddleOCR
+                                # Recommended: Set to true for systems with limited VRAM (e.g., single RTX 2080 Ti)
+
+  # DeepSeek-OCR model settings (only used if use_paddle_ocr: false)
   deepseek_model_size: 'tiny'   # Model size: 'tiny', 'small', 'base', 'large' (tiny uses least memory)
 
   # Multi-GPU settings

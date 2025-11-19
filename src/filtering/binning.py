@@ -11,12 +11,25 @@ import numpy as np
 from PIL import Image
 import torch
 import open_clip
-from deep_ocr import DeepSeekOCR, OCRConfig
+try:
+    from deep_ocr import DeepSeekOCR, OCRConfig
+    DEEPSEEK_AVAILABLE = True
+except ImportError:
+    DEEPSEEK_AVAILABLE = False
+    logger.warning("DeepSeek-OCR not available, will use PaddleOCR")
+
+try:
+    from paddleocr import PaddleOCR
+    PADDLE_AVAILABLE = True
+except ImportError:
+    PADDLE_AVAILABLE = False
+
 from ultralytics import YOLO
 from transformers import BlipProcessor, BlipForConditionalGeneration, Blip2Processor, Blip2ForConditionalGeneration
 import pandas as pd
 import time
 import re
+import cv2
 
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
@@ -59,6 +72,9 @@ class ImageBinner:
         self.enable_multi_gpu = config.get('enable_multi_gpu', True)  # Auto-detect and use multiple GPUs
         self.gpu_manager = GPUManager()
 
+        # OCR backend selection
+        self.use_paddle_ocr = config.get('use_paddle_ocr', False)  # Use PaddleOCR instead of DeepSeek-OCR
+
         # Initialize models
         self._init_models()
     
@@ -81,16 +97,73 @@ class ImageBinner:
                 }
                 logger.info(f"Single device mode: {single_device}")
 
-            # OCR for text detection - using DeepSeekOCR
+            # OCR for text detection - choose backend
             ocr_device = device_map['ocr']
-            logger.info(f"Loading DeepSeek-OCR on {ocr_device}...")
-            ocr_config = OCRConfig(
-                device=ocr_device,
-                crop_mode=True,
-                model_size=self.config.get('deepseek_model_size', 'tiny')  # Use 'tiny' by default for memory efficiency
-            )
-            self.ocr = DeepSeekOCR(config=ocr_config)
-            logger.info(f"DeepSeek-OCR loaded successfully on {ocr_device}")
+
+            if self.use_paddle_ocr or not DEEPSEEK_AVAILABLE:
+                # Use PaddleOCR (lightweight, ~200MB)
+                if not PADDLE_AVAILABLE:
+                    raise ImportError(
+                        "PaddleOCR not installed. Install with: pip install paddleocr paddlepaddle-gpu"
+                    )
+
+                logger.info(f"Loading PaddleOCR on {ocr_device}...")
+                use_gpu = ocr_device != "cpu"
+                gpu_id = int(ocr_device.split(":")[-1]) if "cuda" in ocr_device else 0
+
+                self.ocr = PaddleOCR(
+                    use_angle_cls=True,
+                    lang='en',
+                    use_gpu=use_gpu,
+                    gpu_mem=2000,  # Limit to 2GB
+                    show_log=False,
+                    enable_mkldnn=True if not use_gpu else False,
+                    det_model_dir=None,  # Use default
+                    rec_model_dir=None,  # Use default
+                )
+                self.ocr_backend = 'paddle'
+                logger.info(f"PaddleOCR loaded successfully on {ocr_device}")
+
+            else:
+                # Try DeepSeek-OCR (heavy, ~10GB) with automatic fallback to PaddleOCR
+                try:
+                    logger.info(f"Loading DeepSeek-OCR on {ocr_device}...")
+                    ocr_config = OCRConfig(
+                        device=ocr_device,
+                        crop_mode=True,
+                        model_size=self.config.get('deepseek_model_size', 'tiny')
+                    )
+                    self.ocr = DeepSeekOCR(config=ocr_config)
+                    self.ocr_backend = 'deepseek'
+                    logger.info(f"✓ DeepSeek-OCR loaded successfully on {ocr_device}")
+
+                except (RuntimeError, torch.cuda.OutOfMemoryError) as e:
+                    # DeepSeek-OCR failed (likely OOM), fall back to PaddleOCR
+                    logger.warning(f"✗ DeepSeek-OCR failed to load: {str(e)[:100]}...")
+                    logger.warning("→ Falling back to PaddleOCR...")
+
+                    if not PADDLE_AVAILABLE:
+                        raise ImportError(
+                            "DeepSeek-OCR failed and PaddleOCR not available. "
+                            "Install PaddleOCR with: pip install paddleocr paddlepaddle-gpu"
+                        )
+
+                    # Clear any allocated memory
+                    if torch.cuda.is_available():
+                        torch.cuda.empty_cache()
+
+                    # Load PaddleOCR instead
+                    use_gpu = ocr_device != "cpu"
+                    self.ocr = PaddleOCR(
+                        use_angle_cls=True,
+                        lang='en',
+                        use_gpu=use_gpu,
+                        gpu_mem=2000,
+                        show_log=False,
+                        enable_mkldnn=True if not use_gpu else False,
+                    )
+                    self.ocr_backend = 'paddle'
+                    logger.info(f"✓ PaddleOCR loaded successfully on {ocr_device} (fallback mode)")
 
             # Clear cache after loading OCR (frees up memory on other GPUs)
             if self.gpu_manager.num_gpus > 1:
@@ -178,7 +251,7 @@ class ImageBinner:
     
     def detect_text(self, image_path: str) -> Tuple[int, float]:
         """
-        Detect text in image using DeepSeekOCR.
+        Detect text in image using configured OCR backend.
 
         Args:
             image_path: Path to the image file
@@ -187,32 +260,48 @@ class ImageBinner:
             Tuple of (number of text boxes, text area ratio)
         """
         try:
-            # Use grounding mode to get bounding boxes
-            prompt = "<image>\n<|grounding|>Detect all text regions in this image."
-            result = self.ocr.process(str(image_path), prompt=prompt)
-
             # Get image dimensions
             img = Image.open(image_path)
             img_w, img_h = img.size
             img_area = img_w * img_h
 
-            # Parse bounding boxes from result
-            # DeepSeekOCR returns bounding boxes in the format [[x1,y1,x2,y2], ...]
             bboxes = []
-            if hasattr(result, 'bounding_boxes') and result.bounding_boxes:
-                bboxes = result.bounding_boxes
-            elif hasattr(result, 'text') and result.text:
-                # Parse bounding boxes from text output if available
-                # Pattern to match coordinates like [x1,y1,x2,y2]
-                pattern = r'\[(\d+),(\d+),(\d+),(\d+)\]'
-                matches = re.findall(pattern, result.text)
-                if matches:
-                    # Convert normalized coordinates (0-999) to actual pixels
-                    bboxes = [
-                        [int(x1) * img_w / 1000, int(y1) * img_h / 1000,
-                         int(x2) * img_w / 1000, int(y2) * img_h / 1000]
-                        for x1, y1, x2, y2 in matches
-                    ]
+
+            if self.ocr_backend == 'paddle':
+                # PaddleOCR processing
+                result = self.ocr.ocr(str(image_path), cls=True)
+
+                if result and result[0]:
+                    for line in result[0]:
+                        # PaddleOCR returns: [[[x1,y1], [x2,y2], [x3,y3], [x4,y4]], (text, confidence)]
+                        points = line[0]
+                        # Convert to [x1, y1, x2, y2] format (top-left, bottom-right)
+                        xs = [p[0] for p in points]
+                        ys = [p[1] for p in points]
+                        bbox = [min(xs), min(ys), max(xs), max(ys)]
+                        bboxes.append(bbox)
+
+            else:  # deepseek backend
+                # Use grounding mode to get bounding boxes
+                prompt = "<image>\n<|grounding|>Detect all text regions in this image."
+                result = self.ocr.process(str(image_path), prompt=prompt)
+
+                # Parse bounding boxes from result
+                # DeepSeekOCR returns bounding boxes in the format [[x1,y1,x2,y2], ...]
+                if hasattr(result, 'bounding_boxes') and result.bounding_boxes:
+                    bboxes = result.bounding_boxes
+                elif hasattr(result, 'text') and result.text:
+                    # Parse bounding boxes from text output if available
+                    # Pattern to match coordinates like [x1,y1,x2,y2]
+                    pattern = r'\[(\d+),(\d+),(\d+),(\d+)\]'
+                    matches = re.findall(pattern, result.text)
+                    if matches:
+                        # Convert normalized coordinates (0-999) to actual pixels
+                        bboxes = [
+                            [int(x1) * img_w / 1000, int(y1) * img_h / 1000,
+                             int(x2) * img_w / 1000, int(y2) * img_h / 1000]
+                            for x1, y1, x2, y2 in matches
+                        ]
 
             if not bboxes:
                 return 0, 0.0
