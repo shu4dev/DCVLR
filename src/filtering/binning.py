@@ -60,7 +60,7 @@ class ImageBinner:
             ocr_config = OCRConfig(
                 device="cuda:0" if torch.cuda.is_available() else "cpu",
                 crop_mode=True,
-                model_size=self.config.get('deepseek_model_size', 'base')
+                model_size=self.config.get('deepseek_model_size', 'tiny')  # Use 'tiny' by default for memory efficiency
             )
             self.ocr = DeepSeekOCR(config=ocr_config)
 

@@ -17,6 +17,9 @@ binning:
   clip_similarity_threshold: 0.25  # Min CLIP similarity for Bin C validation
   spatial_dispersion_threshold: 0.3  # Spatial dispersion threshold for complexity filtering
 
+  # DeepSeek-OCR model settings
+  deepseek_model_size: 'tiny'   # Model size: 'tiny', 'small', 'base', 'large' (tiny uses least memory)
+
   # Enhanced model options (merged from blip2.py and yolov11-filter.py)
   use_blip2: false              # Use BLIP-2 for higher quality captions (requires more GPU memory)
   enable_multi_yolo: false      # Enable multi-YOLO benchmarking
