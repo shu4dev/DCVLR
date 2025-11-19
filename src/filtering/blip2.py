@@ -22,13 +22,12 @@ def generate_captions(images, isurl):
     for img in images:
         print("====================================================")
         print("Processing image #", i)
-        print("For url: ", url)
-        
+
         try:
             #if(isurl):
             #    raw_image = Image.open(requests.get(url, stream=True).raw).convert('RGB')
             #else:
-                
+
             # Prepare image for the model: processor does all preprocessing internally
             inputs = processor(images=img, return_tensors="pt").to(device, torch.float16)
 

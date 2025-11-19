@@ -15,7 +15,13 @@ binning:
   object_count_threshold: 5     # Min objects for Bin B (Object/Spatial)
   unique_objects_threshold: 3   # Min unique object types for Bin B
   clip_similarity_threshold: 0.25  # Min CLIP similarity for Bin C validation
-  spatial_dispersion_threshold: 0.5  # Spatial dispersion threshold
+  spatial_dispersion_threshold: 0.3  # Spatial dispersion threshold for complexity filtering
+
+  # Enhanced model options (merged from blip2.py and yolov11-filter.py)
+  use_blip2: false              # Use BLIP-2 for higher quality captions (requires more GPU memory)
+  enable_multi_yolo: false      # Enable multi-YOLO benchmarking
+  yolo_models:                  # YOLO models to use (only when enable_multi_yolo: true)
+    - yolov8n                   # Default: lightweight model for production
 
 # Q/A Synthesis Settings
 synthesis:

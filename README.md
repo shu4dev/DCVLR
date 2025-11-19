@@ -58,7 +58,7 @@ pip install -e .[dev,notebook]
 The default configuration lives in `configs/default_config.yaml`. Each block corresponds to a pipeline stage:
 
 - `filtering` – min resolution, NSFW and watermark thresholds, duplicate detection.
-- `binning` – OCR/text thresholds, YOLO object count, CLIP similarity cutoffs.
+- `binning` – OCR/text thresholds, YOLO object count, CLIP similarity cutoffs, optional BLIP-2 and multi-YOLO support.
 - `synthesis` – LLM ID, decoding params, OCR/YOLO/BLIP model names used by the feature extractor.
 - `validation` – minimum lengths and reasoning/grounding checks.
 - `benchmarking` – target model, hyper-parameters, and evaluation benchmarks.
@@ -72,6 +72,8 @@ filtering:
 binning:
   text_boxes_threshold: 2
   object_count_threshold: 5
+  use_blip2: false              # Set true for higher quality captions
+  enable_multi_yolo: false      # Set true for YOLO model benchmarking
 
 synthesis:
   llm_model: "tiiuae/falcon-7b-instruct"

@@ -170,32 +170,48 @@ class DataSynthesisPipeline:
     def bin_stage(
         self,
         images: List[Dict],
-        bins_ratio: Tuple[float, float, float]
+        bins_ratio: Tuple[float, float, float],
+        filter_by_complexity: bool = False
     ) -> Dict[str, List[Dict]]:
         """
         Stage 2: Categorize images into bins.
-        
+
         Bins:
         - A: Text/Arithmetic (text-heavy images)
         - B: Object/Spatial (object-rich images)
         - C: Commonsense/Attribute (general images)
+
+        Args:
+            images: List of image dictionaries
+            bins_ratio: Ratio for (A, B, C) bins
+            filter_by_complexity: If True, pre-filter images by visual complexity
         """
+        # Optional: Filter by complexity before binning
+        if filter_by_complexity:
+            logger.info("Pre-filtering images by complexity...")
+            filtered_images = []
+            for img_data in tqdm(images, desc="Complexity filtering"):
+                if self.image_binner.filter_by_complexity(img_data['path']):
+                    filtered_images.append(img_data)
+            logger.info(f"Complexity filter: {len(filtered_images)}/{len(images)} images passed")
+            images = filtered_images
+
         binned = self.image_binner.bin_images(images)
-        
+
         # Balance bins according to ratio
         target_a = int(len(images) * bins_ratio[0])
         target_b = int(len(images) * bins_ratio[1])
         target_c = len(images) - target_a - target_b
-        
+
         balanced = {
             'A': binned['A'][:target_a],
             'B': binned['B'][:target_b],
             'C': binned['C'][:target_c]
         }
-        
+
         logger.info(f"Binned images - A: {len(balanced['A'])}, "
                    f"B: {len(balanced['B'])}, C: {len(balanced['C'])}")
-        
+
         return balanced
     
     def synthesis_stage(self, binned_images: Dict[str, List[Dict]]) -> List[Dict]:
@@ -305,15 +321,51 @@ class DataSynthesisPipeline:
         
         logger.info(f"Results saved to {output_path}")
     
+    def benchmark_yolo_models(self, images: List[Dict]) -> None:
+        """
+        Benchmark YOLO models on a set of images.
+
+        This method is useful for evaluating different YOLO versions
+        before deciding which to use in production.
+
+        Args:
+            images: List of image dictionaries with 'path' key
+        """
+        if not self.config['binning'].get('enable_multi_yolo', False):
+            logger.warning(
+                "Multi-YOLO benchmarking not enabled. "
+                "Set enable_multi_yolo: true in config to use this feature."
+            )
+            return
+
+        image_paths = [img['path'] for img in images]
+        logger.info(f"Benchmarking YOLO models on {len(image_paths)} images...")
+
+        results_df = self.image_binner.benchmark_yolo_models(image_paths)
+
+        # Save results
+        output_path = self.output_dir / "yolo_benchmark_results.csv"
+        results_df.to_csv(output_path, index=False)
+        logger.info(f"YOLO benchmark results saved to {output_path}")
+
+        # Print summary
+        print("\nYOLO Benchmark Summary:")
+        print("=" * 60)
+        for model_name in results_df['model_name'].unique():
+            model_results = results_df[results_df['model_name'] == model_name]
+            avg_time = model_results['avg_inference_time'].iloc[0]
+            pass_rate = model_results['passes_filter'].sum() / len(model_results) * 100
+            print(f"{model_name:12s} - Avg time: {avg_time:.3f}s, Pass rate: {pass_rate:.1f}%")
+
     def _load_image_paths(self) -> List[str]:
         """Load all image paths from the images directory."""
         image_extensions = {'.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp'}
-        
+
         paths = []
         for ext in image_extensions:
             paths.extend(Path(self.images_dir).glob(f"*{ext}"))
             paths.extend(Path(self.images_dir).glob(f"*{ext.upper()}"))
-        
+
         return [str(p) for p in paths]
 
 
