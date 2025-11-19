@@ -152,6 +152,7 @@ results/
 checkpoints/
 models/
 cache/
+.hf/
 
 # Image files (if storing locally)
 *.jpg
