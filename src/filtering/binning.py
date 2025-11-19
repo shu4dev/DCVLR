@@ -116,7 +116,6 @@ class ImageBinner:
                     lang='en',
                     use_gpu=use_gpu,
                     gpu_mem=2000,  # Limit to 2GB
-                    show_log=False,
                     enable_mkldnn=True if not use_gpu else False,
                     det_model_dir=None,  # Use default
                     rec_model_dir=None,  # Use default
@@ -159,7 +158,6 @@ class ImageBinner:
                         lang='en',
                         use_gpu=use_gpu,
                         gpu_mem=2000,
-                        show_log=False,
                         enable_mkldnn=True if not use_gpu else False,
                     )
                     self.ocr_backend = 'paddle'
