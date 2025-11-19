@@ -10,11 +10,12 @@ import numpy as np
 from PIL import Image
 import torch
 import open_clip
-from paddleocr import PaddleOCR
+from deep_ocr import DeepSeekOCR, OCRConfig
 from ultralytics import YOLO
 from transformers import BlipProcessor, BlipForConditionalGeneration, Blip2Processor, Blip2ForConditionalGeneration
 import pandas as pd
 import time
+import re
 
 logger = logging.getLogger(__name__)
 
@@ -55,11 +56,13 @@ class ImageBinner:
     def _init_models(self):
         """Initialize required models for binning."""
         try:
-            # OCR for text detection
-            self.ocr = PaddleOCR(
-                lang='en',
-                use_angle_cls=True,
+            # OCR for text detection - using DeepSeekOCR
+            ocr_config = OCRConfig(
+                device="cuda:0" if torch.cuda.is_available() else "cpu",
+                crop_mode=True,
+                model_size=self.config.get('deepseek_model_size', 'base')
             )
+            self.ocr = DeepSeekOCR(config=ocr_config)
 
             # Object detection - Multi-YOLO support
             if self.enable_multi_yolo:
@@ -119,43 +122,60 @@ class ImageBinner:
     
     def detect_text(self, image_path: str) -> Tuple[int, float]:
         """
-        Detect text in image using OCR.
-        
+        Detect text in image using DeepSeekOCR.
+
         Args:
             image_path: Path to the image file
-            
+
         Returns:
             Tuple of (number of text boxes, text area ratio)
         """
         try:
-            # Run OCR detection only (no recognition for speed)
-            result = self.ocr.ocr(str(image_path), det=True, rec=False, cls=False)
-            
-            if not result or not result[0]:
-                return 0, 0.0
-            
-            # Count text boxes
-            num_boxes = len(result[0])
-            
-            # Calculate text area ratio
+            # Use grounding mode to get bounding boxes
+            prompt = "<image>\n<|grounding|>Detect all text regions in this image."
+            result = self.ocr.process(str(image_path), prompt=prompt)
+
+            # Get image dimensions
             img = Image.open(image_path)
             img_w, img_h = img.size
             img_area = img_w * img_h
-            
+
+            # Parse bounding boxes from result
+            # DeepSeekOCR returns bounding boxes in the format [[x1,y1,x2,y2], ...]
+            bboxes = []
+            if hasattr(result, 'bounding_boxes') and result.bounding_boxes:
+                bboxes = result.bounding_boxes
+            elif hasattr(result, 'text') and result.text:
+                # Parse bounding boxes from text output if available
+                # Pattern to match coordinates like [x1,y1,x2,y2]
+                pattern = r'\[(\d+),(\d+),(\d+),(\d+)\]'
+                matches = re.findall(pattern, result.text)
+                if matches:
+                    # Convert normalized coordinates (0-999) to actual pixels
+                    bboxes = [
+                        [int(x1) * img_w / 1000, int(y1) * img_h / 1000,
+                         int(x2) * img_w / 1000, int(y2) * img_h / 1000]
+                        for x1, y1, x2, y2 in matches
+                    ]
+
+            if not bboxes:
+                return 0, 0.0
+
+            # Count text boxes
+            num_boxes = len(bboxes)
+
+            # Calculate text area ratio
             text_area = 0
-            for box_info in result[0]:
-                box = box_info[0] if isinstance(box_info, (list, tuple)) else box_info
-                # Box format: [[x1,y1], [x2,y1], [x2,y2], [x1,y2]]
-                x_coords = [point[0] for point in box]
-                y_coords = [point[1] for point in box]
-                box_w = max(x_coords) - min(x_coords)
-                box_h = max(y_coords) - min(y_coords)
+            for bbox in bboxes:
+                x1, y1, x2, y2 = bbox
+                box_w = abs(x2 - x1)
+                box_h = abs(y2 - y1)
                 text_area += box_w * box_h
-            
+
             text_area_ratio = text_area / img_area
-            
+
             return num_boxes, text_area_ratio
-            
+
         except Exception as e:
             logger.warning(f"Error detecting text in {image_path}: {e}")
             return 0, 0.0
