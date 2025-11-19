@@ -108,17 +108,19 @@ class ImageBinner:
                     )
 
                 logger.info(f"Loading PaddleOCR on {ocr_device}...")
-                use_gpu = ocr_device != "cpu"
-                gpu_id = int(ocr_device.split(":")[-1]) if "cuda" in ocr_device else 0
+                # Convert PyTorch device format to PaddleOCR format
+                if ocr_device == "cpu":
+                    paddle_device = "cpu"
+                else:
+                    # Convert cuda:0 to gpu:0
+                    gpu_id = int(ocr_device.split(":")[-1]) if ":" in ocr_device else 0
+                    paddle_device = f"gpu:{gpu_id}"
 
                 self.ocr = PaddleOCR(
-                    use_angle_cls=True,
+                    use_textline_orientation=True,
                     lang='en',
-                    use_gpu=use_gpu,
-                    gpu_mem=2000,  # Limit to 2GB
-                    enable_mkldnn=True if not use_gpu else False,
-                    det_model_dir=None,  # Use default
-                    rec_model_dir=None,  # Use default
+                    device=paddle_device,
+                    enable_mkldnn=True if paddle_device == "cpu" else False,
                 )
                 self.ocr_backend = 'paddle'
                 logger.info(f"PaddleOCR loaded successfully on {ocr_device}")
@@ -152,13 +154,19 @@ class ImageBinner:
                         torch.cuda.empty_cache()
 
                     # Load PaddleOCR instead
-                    use_gpu = ocr_device != "cpu"
+                    # Convert PyTorch device format to PaddleOCR format
+                    if ocr_device == "cpu":
+                        paddle_device = "cpu"
+                    else:
+                        # Convert cuda:0 to gpu:0
+                        gpu_id = int(ocr_device.split(":")[-1]) if ":" in ocr_device else 0
+                        paddle_device = f"gpu:{gpu_id}"
+
                     self.ocr = PaddleOCR(
-                        use_angle_cls=True,
+                        use_textline_orientation=True,
                         lang='en',
-                        use_gpu=use_gpu,
-                        gpu_mem=2000,
-                        enable_mkldnn=True if not use_gpu else False,
+                        device=paddle_device,
+                        enable_mkldnn=True if paddle_device == "cpu" else False,
                     )
                     self.ocr_backend = 'paddle'
                     logger.info(f"✓ PaddleOCR loaded successfully on {ocr_device} (fallback mode)")
