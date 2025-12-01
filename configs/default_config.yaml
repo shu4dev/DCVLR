@@ -33,9 +33,20 @@ binning:
 
   # Enhanced model options (merged from blip2.py and yolov11-filter.py)
   use_blip2: false              # Use BLIP-2 for higher quality captions (requires more GPU memory)
-  enable_multi_yolo: false      # Enable multi-YOLO benchmarking
-  yolo_models:                  # YOLO models to use (only when enable_multi_yolo: true)
-    - yolov8n                   # Default: lightweight model for production
+
+  # Object Detection Backend Selection
+  object_detector: 'yolo'       # Options: 'yolo' or 'sam'
+                                # yolo = Fast, provides class labels and object types
+                                # sam = Slower, finds all objects/regions without classification
+
+  # YOLO-specific settings (only used if object_detector: 'yolo')
+  yolo_model: 'yolov8n'         # Options: 'yolov8n', 'yolov8s', 'yolov9s', 'yolov10s', 'yolov11s'
+                                # n = nano (fastest, least accurate)
+                                # s = small (balanced)
+
+  # SAM-specific settings (only used if object_detector: 'sam')
+  sam_model_type: 'vit_b'       # Options: 'vit_b' (375MB), 'vit_l' (1.2GB), 'vit_h' (2.4GB)
+  sam_checkpoint: 'models/sam_vit_b_01ec64.pth'  # Path to SAM checkpoint file
 
 # Q/A Synthesis Settings
 synthesis:

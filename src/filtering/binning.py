@@ -31,6 +31,12 @@ import time
 import re
 import cv2
 
+try:
+    from segment_anything import sam_model_registry, SamAutomaticMaskGenerator
+    SAM_AVAILABLE = True
+except ImportError:
+    SAM_AVAILABLE = False
+
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from src.utils.gpu_utils import GPUManager
@@ -65,8 +71,16 @@ class ImageBinner:
 
         # Model configuration
         self.use_blip2 = config.get('use_blip2', False)
-        self.enable_multi_yolo = config.get('enable_multi_yolo', False)
-        self.yolo_models_list = config.get('yolo_models', ['yolov8n'])
+
+        # Object detector selection
+        self.object_detector = config.get('object_detector', 'yolo').lower()  # 'yolo' or 'sam'
+
+        # YOLO-specific configuration
+        self.yolo_model = config.get('yolo_model', 'yolov8n')
+
+        # SAM-specific configuration
+        self.sam_model_type = config.get('sam_model_type', 'vit_b')
+        self.sam_checkpoint = config.get('sam_checkpoint', 'models/sam_vit_b_01ec64.pth')
 
         # GPU configuration
         self.enable_multi_gpu = config.get('enable_multi_gpu', True)  # Auto-detect and use multiple GPUs
@@ -175,11 +189,44 @@ class ImageBinner:
             if self.gpu_manager.num_gpus > 1:
                 self.gpu_manager.clear_cache()
 
-            # Object detection - Multi-YOLO support
-            yolo_device = device_map['yolo']
-            logger.info(f"Loading YOLO on {yolo_device}...")
-            if self.enable_multi_yolo:
-                self.yolo_models = {}
+            # Object detection - YOLO or SAM
+            detector_device = device_map['yolo']  # Use same device mapping for both detectors
+
+            if self.object_detector == 'sam':
+                # SAM-based object detection
+                if not SAM_AVAILABLE:
+                    logger.warning("SAM not available, falling back to YOLO")
+                    self.object_detector = 'yolo'
+                else:
+                    logger.info(f"Loading SAM ({self.sam_model_type}) on {detector_device}...")
+                    try:
+                        # Load SAM model
+                        sam = sam_model_registry[self.sam_model_type](checkpoint=self.sam_checkpoint)
+                        if detector_device != "cpu":
+                            sam.to(device=detector_device)
+
+                        # Create automatic mask generator
+                        self.sam_generator = SamAutomaticMaskGenerator(
+                            model=sam,
+                            points_per_side=32,
+                            pred_iou_thresh=0.86,
+                            stability_score_thresh=0.92,
+                            crop_n_layers=1,
+                            crop_n_points_downscale_factor=2,
+                            min_mask_region_area=100,
+                        )
+                        self.detector_device = detector_device
+                        logger.info(f"SAM loaded successfully on {detector_device}")
+                    except Exception as e:
+                        logger.error(f"Failed to load SAM: {e}")
+                        logger.warning("Falling back to YOLO")
+                        self.object_detector = 'yolo'
+
+            if self.object_detector == 'yolo':
+                # YOLO-based object detection
+                logger.info(f"Loading YOLO ({self.yolo_model}) on {detector_device}...")
+
+                # Model mapping
                 model_mapping = {
                     'yolov8n': 'yolov8n.pt',
                     'yolov8s': 'yolov8s.pt',
@@ -187,25 +234,16 @@ class ImageBinner:
                     'yolov10s': 'yolov10s.pt',
                     'yolov11s': 'yolo11s.pt',
                 }
-                for model_name in self.yolo_models_list:
-                    if model_name in model_mapping:
-                        self.yolo_models[model_name] = YOLO(model_mapping[model_name])
-                        # Move to appropriate device
-                        if yolo_device != "cpu":
-                            self.yolo_models[model_name].to(yolo_device)
-                        logger.info(f"Loaded {model_name} on {yolo_device}")
 
-                # Set default YOLO model
-                self.yolo = self.yolo_models[self.yolo_models_list[0]]
-            else:
-                # Single YOLO model (default: v8n for speed)
-                self.yolo = YOLO('yolov8n.pt')
-                if yolo_device != "cpu":
-                    self.yolo.to(yolo_device)
-                logger.info(f"YOLO loaded on {yolo_device}")
+                # Load the selected YOLO model
+                model_file = model_mapping.get(self.yolo_model, 'yolov8n.pt')
+                self.yolo = YOLO(model_file)
+                if detector_device != "cpu":
+                    self.yolo.to(detector_device)
+                logger.info(f"YOLO {self.yolo_model} loaded on {detector_device}")
 
-            # Store device for YOLO inference
-            self.yolo_device = yolo_device
+                # Store device for YOLO inference
+                self.detector_device = detector_device
 
             # CLIP for caption similarity
             clip_device = device_map['clip']
@@ -275,7 +313,7 @@ class ImageBinner:
 
             if self.ocr_backend == 'paddle':
                 # PaddleOCR processing
-                result = self.ocr.ocr(str(image_path), cls=True)
+                result = self.ocr.ocr(str(image_path))
 
                 if result and result[0]:
                     for line in result[0]:
@@ -331,35 +369,98 @@ class ImageBinner:
             logger.warning(f"Error detecting text in {image_path}: {e}")
             return 0, 0.0
     
-    def detect_objects(self, image_path: str) -> Tuple[int, int, float]:
+    def detect_objects_sam(self, image_path: str) -> Tuple[int, int, float]:
         """
-        Detect objects in image using YOLO.
-        
+        Detect objects in image using SAM (Segment Anything Model).
+
         Args:
             image_path: Path to the image file
-            
+
+        Returns:
+            Tuple of (total objects, estimated unique classes, spatial dispersion)
+            Note: SAM doesn't classify objects, so unique_classes is estimated based on mask diversity
+        """
+        try:
+            # Load image
+            image = cv2.imread(str(image_path))
+            image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+            img_h, img_w = image.shape[:2]
+
+            # Generate masks
+            masks = self.sam_generator.generate(image)
+
+            if not masks or len(masks) == 0:
+                return 0, 0, 0.0
+
+            num_objects = len(masks)
+
+            # Estimate unique classes based on mask area diversity
+            # Group masks by similar areas to estimate different object types
+            areas = [mask['area'] for mask in masks]
+            if areas:
+                # Use clustering of areas as a proxy for unique object types
+                area_bins = np.histogram(areas, bins=min(10, len(areas)))[0]
+                unique_classes = np.count_nonzero(area_bins)
+            else:
+                unique_classes = 0
+
+            # Calculate spatial dispersion using mask centroids
+            if masks:
+                centers = []
+                for mask in masks:
+                    # Get bounding box from mask
+                    bbox = mask['bbox']  # Format: [x, y, w, h]
+                    center_x = bbox[0] + bbox[2] / 2
+                    center_y = bbox[1] + bbox[3] / 2
+                    centers.append((center_x, center_y))
+
+                if centers:
+                    centers = np.array(centers)
+                    # Calculate bounding box of all objects
+                    min_x, min_y = np.min(centers, axis=0)
+                    max_x, max_y = np.max(centers, axis=0)
+                    dispersion = (max_x - min_x) * (max_y - min_y)
+                    dispersion_ratio = dispersion / (img_w * img_h)
+                else:
+                    dispersion_ratio = 0.0
+            else:
+                dispersion_ratio = 0.0
+
+            return num_objects, unique_classes, dispersion_ratio
+
+        except Exception as e:
+            logger.warning(f"Error detecting objects with SAM in {image_path}: {e}")
+            return 0, 0, 0.0
+
+    def detect_objects_yolo(self, image_path: str) -> Tuple[int, int, float]:
+        """
+        Detect objects in image using YOLO.
+
+        Args:
+            image_path: Path to the image file
+
         Returns:
             Tuple of (total objects, unique classes, spatial dispersion)
         """
         try:
             # Run object detection
             results = self.yolo(str(image_path))
-            
+
             if not results or len(results) == 0:
                 return 0, 0, 0.0
-            
+
             det = results[0]
-            
+
             if det.boxes is None:
                 return 0, 0, 0.0
-            
+
             # Extract object information
             classes = det.boxes.cls.cpu().numpy().astype(int)
             boxes = det.boxes.xyxy.cpu().numpy()
-            
+
             num_objects = len(classes)
             unique_classes = len(set(classes))
-            
+
             # Calculate spatial dispersion
             if len(boxes) > 0:
                 # Get centers of all boxes
@@ -367,14 +468,14 @@ class ImageBinner:
                 for box in boxes:
                     x1, y1, x2, y2 = box
                     centers.append(((x1 + x2) / 2, (y1 + y2) / 2))
-                
+
                 if centers:
                     centers = np.array(centers)
                     # Calculate bounding box of all objects
                     min_x, min_y = np.min(centers, axis=0)
                     max_x, max_y = np.max(centers, axis=0)
                     dispersion = (max_x - min_x) * (max_y - min_y)
-                    
+
                     # Normalize by image size
                     img = Image.open(image_path)
                     img_w, img_h = img.size
@@ -383,12 +484,27 @@ class ImageBinner:
                     dispersion_ratio = 0.0
             else:
                 dispersion_ratio = 0.0
-            
+
             return num_objects, unique_classes, dispersion_ratio
-            
+
         except Exception as e:
-            logger.warning(f"Error detecting objects in {image_path}: {e}")
+            logger.warning(f"Error detecting objects with YOLO in {image_path}: {e}")
             return 0, 0, 0.0
+
+    def detect_objects(self, image_path: str) -> Tuple[int, int, float]:
+        """
+        Detect objects in image using the configured detector (YOLO or SAM).
+
+        Args:
+            image_path: Path to the image file
+
+        Returns:
+            Tuple of (total objects, unique classes, spatial dispersion)
+        """
+        if self.object_detector == 'sam':
+            return self.detect_objects_sam(image_path)
+        else:
+            return self.detect_objects_yolo(image_path)
     
     def generate_caption(self, image_path: str) -> str:
         """

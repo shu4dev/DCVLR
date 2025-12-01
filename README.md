@@ -58,7 +58,7 @@ pip install -e .[dev,notebook]
 The default configuration lives in `configs/default_config.yaml`. Each block corresponds to a pipeline stage:
 
 - `filtering` – min resolution, NSFW and watermark thresholds, duplicate detection.
-- `binning` – OCR/text thresholds, YOLO object count, CLIP similarity cutoffs, optional BLIP-2 and multi-YOLO support.
+- `binning` – OCR/text thresholds, object detector selection (YOLO/SAM), CLIP similarity cutoffs, optional BLIP-2 support.
 - `synthesis` – LLM ID, decoding params, OCR/YOLO/BLIP model names used by the feature extractor.
 - `validation` – minimum lengths and reasoning/grounding checks.
 - `benchmarking` – target model, hyper-parameters, and evaluation benchmarks.
@@ -73,13 +73,50 @@ binning:
   text_boxes_threshold: 2
   object_count_threshold: 5
   use_blip2: false              # Set true for higher quality captions
-  enable_multi_yolo: false      # Set true for YOLO model benchmarking
+
+  # Object Detection Backend Selection
+  object_detector: 'yolo'       # Options: 'yolo' or 'sam'
+  yolo_model: 'yolov8n'         # Options: yolov8n, yolov8s, yolov9s, yolov10s, yolov11s
+
+  # SAM settings (only used if object_detector: 'sam')
+  sam_model_type: 'vit_b'       # Options: vit_b (375MB), vit_l (1.2GB), vit_h (2.4GB)
+  sam_checkpoint: 'models/sam_vit_b_01ec64.pth'
 
 synthesis:
   llm_model: "tiiuae/falcon-7b-instruct"
   temperature: 0.7
 ```
 Copy the file, tweak the values, and pass the new path through `--config` (CLI) or the `config_path` argument (Python).
+
+### Object Detector Selection: YOLO vs SAM
+
+The binning stage uses object detection to categorize images into Bin B (Object/Spatial). You can choose between two object detection backends:
+
+#### YOLO (You Only Look Once) - Default
+- **Pros**: Fast, lightweight, provides object class labels (person, car, dog, etc.)
+- **Cons**: May miss unusual or unlabeled objects
+- **Best for**: Production use, speed-critical pipelines, when you need object type information
+- **Configuration**:
+  ```yaml
+  binning:
+    object_detector: 'yolo'
+    yolo_model: 'yolov8n'  # Options: yolov8n (fastest), yolov8s, yolov9s, yolov10s, yolov11s
+  ```
+
+#### SAM (Segment Anything Model)
+- **Pros**: Finds all objects/regions regardless of type, more thorough detection
+- **Cons**: Slower, requires more memory, no object classification (estimates unique classes by mask diversity)
+- **Best for**: When you need comprehensive object detection, research experiments
+- **Requirements**: Install SAM separately: `pip install segment-anything`
+- **Configuration**:
+  ```yaml
+  binning:
+    object_detector: 'sam'
+    sam_model_type: 'vit_b'  # Options: vit_b (375MB), vit_l (1.2GB), vit_h (2.4GB)
+    sam_checkpoint: 'models/sam_vit_b_01ec64.pth'  # Download from Meta AI
+  ```
+
+**Fallback behavior**: If SAM fails to load (not installed or checkpoint missing), the pipeline automatically falls back to YOLO.
 
 ## Usage
 ### 1. End-to-end CLI
