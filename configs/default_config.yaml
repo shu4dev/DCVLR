@@ -18,7 +18,7 @@ binning:
   spatial_dispersion_threshold: 0.3  # Spatial dispersion threshold for complexity filtering
 
   # OCR Backend Selection
-  use_paddle_ocr: true          # true = PaddleOCR (lightweight, ~200MB), false = DeepSeek-OCR (heavy, ~10GB)
+  use_paddle_ocr: false          # true = PaddleOCR (lightweight, ~200MB), false = DeepSeek-OCR (heavy, ~10GB)
                                 # If use_paddle_ocr: false and DeepSeek fails (OOM), automatically falls back to PaddleOCR
                                 # Recommended: Set to true for systems with limited VRAM (e.g., single RTX 2080 Ti)
 

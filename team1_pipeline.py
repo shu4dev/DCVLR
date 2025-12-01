@@ -135,23 +135,35 @@ class DataSynthesisPipeline:
     def filter_stage(self, num_images: int) -> List[Dict]:
         """
         Stage 1: Filter and preprocess images.
-        
+
         Applies:
         - Resolution filtering
         - NSFW content filtering
         - Watermark detection
         - Duplicate removal
+
+        Args:
+            num_images: Number of images to process. Use -1 to process all images.
         """
         if not self.images_dir:
             raise ValueError("Images directory not specified")
-        
+
         # Load images
         image_paths = self._load_image_paths()
         logger.info(f"Found {len(image_paths)} images")
-        
+
+        # Handle "process all images" case
+        process_all = (num_images == -1)
+        if process_all:
+            images_to_check = image_paths
+            logger.info("Processing all images (num_images=-1)")
+        else:
+            # Check extra images to account for filtering losses
+            images_to_check = image_paths[:num_images * 2]
+
         filtered_images = []
-        
-        for img_path in tqdm(image_paths[:num_images * 2], desc="Filtering"):
+
+        for img_path in tqdm(images_to_check, desc="Filtering"):
             # Apply filters
             if self.image_filter.check_resolution(img_path):
                 if self.image_filter.check_nsfw(img_path):
@@ -160,10 +172,11 @@ class DataSynthesisPipeline:
                             'path': img_path,
                             'id': Path(img_path).stem
                         })
-            
-            if len(filtered_images) >= num_images:
+
+            # Only stop early if we have a specific target
+            if not process_all and len(filtered_images) >= num_images:
                 break
-        
+
         logger.info(f"Filtered to {len(filtered_images)} images")
         return filtered_images
     
@@ -358,13 +371,14 @@ class DataSynthesisPipeline:
             print(f"{model_name:12s} - Avg time: {avg_time:.3f}s, Pass rate: {pass_rate:.1f}%")
 
     def _load_image_paths(self) -> List[str]:
-        """Load all image paths from the images directory."""
+        """Load all image paths from the images directory, including subdirectories."""
         image_extensions = {'.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp'}
 
         paths = []
         for ext in image_extensions:
-            paths.extend(Path(self.images_dir).glob(f"*{ext}"))
-            paths.extend(Path(self.images_dir).glob(f"*{ext.upper()}"))
+            # Use ** to recursively search all subdirectories
+            paths.extend(Path(self.images_dir).glob(f"**/*{ext}"))
+            paths.extend(Path(self.images_dir).glob(f"**/*{ext.upper()}"))
 
         return [str(p) for p in paths]
 

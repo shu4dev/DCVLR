@@ -23,15 +23,18 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  # Basic usage with 1000 images
+  # Process all images (default behavior)
+  python run_pipeline.py --images-dir ./data/images
+
+  # Process specific number of images
   python run_pipeline.py --images-dir ./data/images --num-images 1000
-  
+
   # Custom configuration and output directory
   python run_pipeline.py --images-dir ./data/images --config ./my_config.yaml --output-dir ./results
-  
+
   # Skip benchmarking stage
   python run_pipeline.py --images-dir ./data/images --skip-benchmarking
-  
+
   # Custom bin ratios (Text:Object:Commonsense)
   python run_pipeline.py --images-dir ./data/images --bins-ratio 0.3 0.3 0.4
         """
@@ -56,8 +59,8 @@ Examples:
     parser.add_argument(
         '--num-images',
         type=int,
-        default=1000,
-        help='Number of images to process (default: 1000)'
+        default=-1,
+        help='Number of images to process (default: -1 for all images)'
     )
     
     parser.add_argument(

@@ -25,7 +25,7 @@ from team1_pipeline import DataSynthesisPipeline
 def initialize_pipeline():
     """Initialize the pipeline with configuration."""
     config = {
-        'images_dir': './data/TextVQA',  # Using TextVQA dataset
+        'images_dir': './data',  # Using TextVQA dataset
         'output_dir': './output/demo',
         'config_path': './configs/default_config.yaml',
         'device': 'cuda' if torch.cuda.is_available() else 'cpu'
