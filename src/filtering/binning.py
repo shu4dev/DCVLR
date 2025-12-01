@@ -614,28 +614,37 @@ class ImageBinner:
     def bin_images(self, images: List[Dict]) -> Dict[str, List[Dict]]:
         """
         Categorize multiple images into bins.
-        
+
         Args:
             images: List of image dictionaries with 'path' key
-            
+
         Returns:
             Dictionary with bin categories as keys and image lists as values
         """
+        # Log starting amount
+        total_start = len(images)
+        logger.info(f"Binning started with {total_start} images")
+
         bins = {'A': [], 'B': [], 'C': []}
-        
+
         for img_data in images:
             try:
                 bin_category = self.categorize_image(img_data['path'])
                 bins[bin_category].append(img_data)
-                
+
             except Exception as e:
                 logger.error(f"Error binning image {img_data['path']}: {e}")
                 # Default to Bin C on error
                 bins['C'].append(img_data)
-        
-        logger.info(f"Binning complete - A: {len(bins['A'])}, "
-                   f"B: {len(bins['B'])}, C: {len(bins['C'])}")
-        
+
+        # Log ending amount for each bin
+        logger.info(f"Binning complete:")
+        logger.info(f"  Started with: {total_start} images")
+        logger.info(f"  Bin A (Text/Arithmetic): {len(bins['A'])} images")
+        logger.info(f"  Bin B (Object/Spatial): {len(bins['B'])} images")
+        logger.info(f"  Bin C (Commonsense/Attribute): {len(bins['C'])} images")
+        logger.info(f"  Total binned: {len(bins['A']) + len(bins['B']) + len(bins['C'])} images")
+
         return bins
     
     def balance_bins(
