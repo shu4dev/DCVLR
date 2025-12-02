@@ -89,7 +89,7 @@ class DataSynthesisPipeline:
         bins_ratio: Tuple[float, float, float] = (0.4, 0.4, 0.2)
     ) -> Dict[str, Any]:
         """
-        Run the complete pipeline end-to-end.
+        Run the complete pipeline end-to-end with automatic resume from intermediate results.
 
         Args:
             num_images: Target number of images to process
@@ -99,13 +99,116 @@ class DataSynthesisPipeline:
             Dictionary containing pipeline results and metrics
         """
         logger.info(f"Starting pipeline with {num_images} images")
+        logger.info("Checking for intermediate results to resume from...")
         results = {}
-        
-        # Stage 1: Filtering
-        logger.info("Stage 1: Filtering images...")
-        filtered_images = self.filter_stage(num_images)
-        results['filtered_count'] = len(filtered_images)
-        self.save_stage1_results(filtered_images)
+
+        # Try to resume from Stage 4 (most advanced checkpoint)
+        validated_dataset = self.load_stage4_results()
+        if validated_dataset is not None:
+            logger.info("✓ Resuming from Stage 4 (Validation) - Pipeline already complete!")
+            results['validated_qa'] = len(validated_dataset)
+
+            # Load earlier stage results for complete metrics
+            qa_dataset = self.load_stage3_results()
+            if qa_dataset:
+                results['generated_qa'] = len(qa_dataset)
+
+            binned_images = self.load_stage2_results()
+            if binned_images:
+                results['bins'] = {
+                    'A': len(binned_images['A']),
+                    'B': len(binned_images['B']),
+                    'C': len(binned_images['C'])
+                }
+
+            filtered_images = self.load_stage1_results()
+            if filtered_images:
+                results['filtered_count'] = len(filtered_images)
+
+            # Save validated dataset
+            self.save_dataset(validated_dataset)
+            logger.info("Pipeline already completed! Using cached results.")
+            self.save_results(results)
+            return results
+
+        # Try to resume from Stage 3
+        qa_dataset = self.load_stage3_results()
+        if qa_dataset is not None:
+            logger.info("✓ Resuming from Stage 3 (Synthesis) - Skipping to Stage 4...")
+            results['generated_qa'] = len(qa_dataset)
+
+            # Load earlier stage results for metrics
+            binned_images = self.load_stage2_results()
+            if binned_images:
+                results['bins'] = {
+                    'A': len(binned_images['A']),
+                    'B': len(binned_images['B']),
+                    'C': len(binned_images['C'])
+                }
+
+            filtered_images = self.load_stage1_results()
+            if filtered_images:
+                results['filtered_count'] = len(filtered_images)
+
+            # Continue from Stage 4
+            logger.info("Stage 4: Validating dataset...")
+            original_qa_count = len(qa_dataset)
+            validated_dataset = self.validation_stage(qa_dataset)
+            results['validated_qa'] = len(validated_dataset)
+            self.save_stage4_results(validated_dataset, original_qa_count)
+
+            # Save validated dataset
+            self.save_dataset(validated_dataset)
+            logger.info("Pipeline completed successfully!")
+            self.save_results(results)
+            return results
+
+        # Try to resume from Stage 2
+        binned_images = self.load_stage2_results()
+        if binned_images is not None:
+            logger.info("✓ Resuming from Stage 2 (Binning) - Skipping to Stage 3...")
+            results['bins'] = {
+                'A': len(binned_images['A']),
+                'B': len(binned_images['B']),
+                'C': len(binned_images['C'])
+            }
+
+            # Load Stage 1 results for metrics
+            filtered_images = self.load_stage1_results()
+            if filtered_images:
+                results['filtered_count'] = len(filtered_images)
+
+            # Continue from Stage 3
+            logger.info("Stage 3: Synthesizing Q/A pairs...")
+            qa_dataset = self.synthesis_stage(binned_images)
+            results['generated_qa'] = len(qa_dataset)
+            self.save_stage3_results(qa_dataset)
+
+            # Stage 4: Validation
+            logger.info("Stage 4: Validating dataset...")
+            original_qa_count = len(qa_dataset)
+            validated_dataset = self.validation_stage(qa_dataset)
+            results['validated_qa'] = len(validated_dataset)
+            self.save_stage4_results(validated_dataset, original_qa_count)
+
+            # Save validated dataset
+            self.save_dataset(validated_dataset)
+            logger.info("Pipeline completed successfully!")
+            self.save_results(results)
+            return results
+
+        # Try to resume from Stage 1
+        filtered_images = self.load_stage1_results()
+        if filtered_images is not None:
+            logger.info("✓ Resuming from Stage 1 (Filtering) - Skipping to Stage 2...")
+            results['filtered_count'] = len(filtered_images)
+        else:
+            # No cached results - start from beginning
+            logger.info("No intermediate results found - Starting from Stage 1...")
+            logger.info("Stage 1: Filtering images...")
+            filtered_images = self.filter_stage(num_images)
+            results['filtered_count'] = len(filtered_images)
+            self.save_stage1_results(filtered_images)
 
         # Stage 2: Binning
         logger.info("Stage 2: Binning images...")
@@ -129,7 +232,7 @@ class DataSynthesisPipeline:
         validated_dataset = self.validation_stage(qa_dataset)
         results['validated_qa'] = len(validated_dataset)
         self.save_stage4_results(validated_dataset, original_qa_count)
-        
+
         # Save validated dataset
         self.save_dataset(validated_dataset)
 
@@ -290,6 +393,26 @@ class DataSynthesisPipeline:
         
         return validated
 
+    def load_stage1_results(self) -> Optional[List[Dict]]:
+        """Load Stage 1 (Filtering) results from disk if available."""
+        stage1_dir = self.output_dir / "intermediate" / "stage1_filtering"
+        output_path = stage1_dir / "filtered_images.jsonl"
+
+        if not output_path.exists():
+            return None
+
+        try:
+            filtered_images = []
+            with open(output_path, 'r') as f:
+                for line in f:
+                    filtered_images.append(json.loads(line))
+
+            logger.info(f"Loaded {len(filtered_images)} images from Stage 1 cache")
+            return filtered_images
+        except Exception as e:
+            logger.warning(f"Failed to load Stage 1 results: {e}")
+            return None
+
     def save_stage1_results(self, filtered_images: List[Dict]):
         """Save Stage 1 (Filtering) results to disk."""
         if not self.save_intermediate:
@@ -315,6 +438,36 @@ class DataSynthesisPipeline:
             json.dump(summary, f, indent=2)
 
         logger.info(f"Stage 1 results saved to {stage1_dir}")
+
+    def load_stage2_results(self) -> Optional[Dict[str, List[Dict]]]:
+        """Load Stage 2 (Binning) results from disk if available."""
+        stage2_dir = self.output_dir / "intermediate" / "stage2_binning"
+
+        binned_images = {'A': [], 'B': [], 'C': []}
+        all_exist = True
+
+        for bin_type in ['A', 'B', 'C']:
+            bin_path = stage2_dir / f"bin_{bin_type}.jsonl"
+            if not bin_path.exists():
+                all_exist = False
+                break
+
+        if not all_exist:
+            return None
+
+        try:
+            for bin_type in ['A', 'B', 'C']:
+                bin_path = stage2_dir / f"bin_{bin_type}.jsonl"
+                with open(bin_path, 'r') as f:
+                    for line in f:
+                        binned_images[bin_type].append(json.loads(line))
+
+            total = sum(len(imgs) for imgs in binned_images.values())
+            logger.info(f"Loaded {total} binned images from Stage 2 cache (A:{len(binned_images['A'])}, B:{len(binned_images['B'])}, C:{len(binned_images['C'])})")
+            return binned_images
+        except Exception as e:
+            logger.warning(f"Failed to load Stage 2 results: {e}")
+            return None
 
     def save_stage2_results(self, binned_images: Dict[str, List[Dict]]):
         """Save Stage 2 (Binning) results to disk."""
@@ -355,6 +508,26 @@ class DataSynthesisPipeline:
             json.dump(summary, f, indent=2)
 
         logger.info(f"Stage 2 results saved to {stage2_dir}")
+
+    def load_stage3_results(self) -> Optional[List[Dict]]:
+        """Load Stage 3 (Synthesis) results from disk if available."""
+        stage3_dir = self.output_dir / "intermediate" / "stage3_synthesis"
+        output_path = stage3_dir / "generated_qa_pairs.jsonl"
+
+        if not output_path.exists():
+            return None
+
+        try:
+            qa_dataset = []
+            with open(output_path, 'r') as f:
+                for line in f:
+                    qa_dataset.append(json.loads(line))
+
+            logger.info(f"Loaded {len(qa_dataset)} Q/A pairs from Stage 3 cache")
+            return qa_dataset
+        except Exception as e:
+            logger.warning(f"Failed to load Stage 3 results: {e}")
+            return None
 
     def save_stage3_results(self, qa_dataset: List[Dict]):
         """Save Stage 3 (Synthesis) results to disk."""
@@ -398,6 +571,26 @@ class DataSynthesisPipeline:
             json.dump(summary, f, indent=2)
 
         logger.info(f"Stage 3 results saved to {stage3_dir}")
+
+    def load_stage4_results(self) -> Optional[List[Dict]]:
+        """Load Stage 4 (Validation) results from disk if available."""
+        stage4_dir = self.output_dir / "intermediate" / "stage4_validation"
+        output_path = stage4_dir / "validated_qa_pairs.jsonl"
+
+        if not output_path.exists():
+            return None
+
+        try:
+            validated_dataset = []
+            with open(output_path, 'r') as f:
+                for line in f:
+                    validated_dataset.append(json.loads(line))
+
+            logger.info(f"Loaded {len(validated_dataset)} validated Q/A pairs from Stage 4 cache")
+            return validated_dataset
+        except Exception as e:
+            logger.warning(f"Failed to load Stage 4 results: {e}")
+            return None
 
     def save_stage4_results(self, validated_dataset: List[Dict], original_count: int):
         """Save Stage 4 (Validation) results to disk."""

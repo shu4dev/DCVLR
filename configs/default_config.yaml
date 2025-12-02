@@ -35,7 +35,7 @@ binning:
   use_blip2: false              # Use BLIP-2 for higher quality captions (requires more GPU memory)
 
   # Captioning Backend Selection
-  captioner_backend: 'moondream'     # Options: 'blip', 'blip2', 'moondream'
+  captioner_backend: 'blip2'     # Options: 'blip', 'blip2', 'moondream'
                                 # blip = BLIP-base (fast, local, ~1GB VRAM)
                                 # blip2 = BLIP-2 (high quality, local, ~10GB VRAM)
                                 # moondream = Moondream API (cloud-based, requires API key)

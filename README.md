@@ -2,12 +2,15 @@
 
 Implementation of the Team-1 reasoning-focused data synthesis workflow (see `Implmentation.pdf`). The pipeline curates raw images, synthesizes question/answer/reasoning triples with a large language model, and validates the generations to produce high-quality vision-language datasets.
 
+> **🚀 NEW Feature:** Automatic crash recovery! The pipeline now automatically resumes from the last completed stage if interrupted. [Learn more ↓](#-automatic-resume-behavior)
+
 ## Highlights
 - **End-to-end pipeline** – filtering, binning, synthesis, and validation live in a single orchestrator (`team1_pipeline.py`).
 - **Modular stages** – swap filtering, LLM, or validation components by editing `configs/default_config.yaml`.
 - **Flexible captioning** – Choose between BLIP, BLIP-2, or Moondream API for image captions.
 - **Feature extraction modes** – Full features (OCR+objects+captions) or caption-only for 70% faster processing.
 - **Intermediate saves** – Automatically saves results after each stage for debugging and recovery.
+- **Automatic resume** – Detects interrupted runs and resumes from the last completed stage automatically.
 - **Scriptable + importable** – run via `scripts/run_pipeline.py` or embed with the `DataSynthesisPipeline` class.
 - **Reproducible config** – every stage is parameterized by YAML and persisted along with outputs/logs.
 
@@ -228,13 +231,13 @@ synthesis:
 
 See [FEATURE_EXTRACTION_MODES.md](FEATURE_EXTRACTION_MODES.md) for detailed comparison.
 
-### Intermediate Results Saving
+### Intermediate Results Saving & Automatic Resume
 
-Save pipeline results after each stage for debugging and recovery:
+**Save intermediate results** after each stage for debugging and recovery:
 
 ```yaml
 output:
-  save_intermediate: true  # Options: true or false
+  save_intermediate: true  # Default: true (enables automatic resume)
 ```
 
 **When enabled**, creates `output/intermediate/` with:
@@ -243,9 +246,33 @@ output:
 - `stage3_synthesis/` - Generated Q/A pairs before validation
 - `stage4_validation/` - Validated Q/A pairs with removal rates
 
-**Benefits**: Resume from failures, debug issues, analyze per-stage results.
+#### 🔄 Automatic Resume Behavior
 
-See [INTERMEDIATE_SAVES_FEATURE.md](INTERMEDIATE_SAVES_FEATURE.md) for details.
+The pipeline **automatically resumes** from the last completed stage:
+
+| Scenario | What Happens |
+|----------|-------------|
+| **Pipeline crashes after Stage 2** | Rerun → Skips Stages 1-2, continues from Stage 3 |
+| **Pipeline already complete** | Rerun → Returns cached results instantly |
+| **No intermediate results** | Rerun → Starts from Stage 1 (normal behavior) |
+| **Modify config and rerun** | Resume from last stage, apply new settings going forward |
+
+**To force restart from scratch:**
+```bash
+# Option 1: Delete intermediate results
+rm -rf output/intermediate/
+
+# Option 2: Use a new output directory
+python scripts/run_pipeline.py --images-dir ./data --output-dir ./output_fresh
+```
+
+**Benefits:**
+- ✅ **Crash recovery** - Never lose hours of computation
+- ✅ **Iterative development** - Modify later stages without reprocessing
+- ✅ **Debug friendly** - Inspect intermediate results at each stage
+- ✅ **Zero configuration** - Works automatically, no flags needed
+
+See [RESUME_FEATURE.md](RESUME_FEATURE.md) for detailed examples and [INTERMEDIATE_SAVES_FEATURE.md](INTERMEDIATE_SAVES_FEATURE.md) for file format details.
 
 ## Data Structure
 
@@ -288,6 +315,10 @@ python test_train_folders_simple.py --data-dir ./data
 This verifies that your data is organized correctly and shows how many images were found in each dataset.
 
 ## Usage
+
+> **💡 TIP:** The pipeline automatically resumes from the last completed stage if interrupted!
+> Just rerun your command - no extra flags needed. [Learn more ↓](#-automatic-resume-behavior)
+
 ### 1. End-to-end CLI
 
 **Process all images**:
@@ -295,6 +326,8 @@ This verifies that your data is organized correctly and shows how many images we
 python scripts/run_pipeline.py \
   --images-dir ./data \
   --num-images -1
+
+# If interrupted, rerun the same command - it will resume automatically!
 ```
 
 **Process specific number of images**:
@@ -306,6 +339,19 @@ python scripts/run_pipeline.py \
   --config configs/default_config.yaml \
   --bins-ratio 0.4 0.4 0.2 \
   --device cuda
+
+# ✓ Automatic resume enabled - crashes won't lose your progress!
+```
+
+**What you'll see when resuming:**
+```
+$ python scripts/run_pipeline.py --images-dir ./data
+Starting pipeline with 1000 images
+Checking for intermediate results to resume from...
+✓ Resuming from Stage 2 (Binning) - Skipping to Stage 3...
+Loaded 1000 binned images from Stage 2 cache (A:400, B:400, C:200)
+Stage 3: Synthesizing Q/A pairs...
+[Pipeline continues from Stage 3...]
 ```
 
 **Important flags**:
@@ -320,6 +366,9 @@ python scripts/run_pipeline.py \
 - `--dry-run` – Validate configuration without running the pipeline
 
 ### 2. Python API
+
+The Python API also benefits from automatic resume - just call `pipeline.run()` again!
+
 ```python
 from team1_pipeline import DataSynthesisPipeline
 
@@ -331,10 +380,12 @@ pipeline = DataSynthesisPipeline(
     device="cuda"
 )
 
+# First run - may get interrupted
 results = pipeline.run(
     num_images=500,
     bins_ratio=(0.4, 0.4, 0.2)
 )
+# Automatically resumes from last completed stage!
 
 print(results["filtered_count"], "images survived filtering")
 ```
