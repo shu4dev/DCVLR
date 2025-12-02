@@ -12,11 +12,10 @@ from PIL import Image
 import torch
 import open_clip
 try:
-    from deep_ocr import DeepSeekOCR, OCRConfig
+    from transformers import AutoModel, AutoTokenizer
     DEEPSEEK_AVAILABLE = True
 except ImportError:
     DEEPSEEK_AVAILABLE = False
-    logger.warning("DeepSeek-OCR not available, will use PaddleOCR")
 
 try:
     from paddleocr import PaddleOCR
@@ -148,14 +147,55 @@ class ImageBinner:
                 # Try DeepSeek-OCR (heavy, ~10GB) with automatic fallback to PaddleOCR
                 try:
                     logger.info(f"Loading DeepSeek-OCR on {ocr_device}...")
-                    ocr_config = OCRConfig(
-                        device=ocr_device,
-                        crop_mode=True,
-                        model_size=self.config.get('deepseek_model_size', 'tiny')
+
+                    # Load model and tokenizer from HuggingFace
+                    model_name = 'deepseek-ai/DeepSeek-OCR'
+                    self.ocr_tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
+
+                    # Determine dtype based on device
+                    model_dtype = torch.bfloat16 if ocr_device != "cpu" else torch.float32
+
+                    self.ocr_model = AutoModel.from_pretrained(
+                        model_name,
+                        _attn_implementation='flash_attention_2',
+                        torch_dtype=model_dtype,
+                        device_map=ocr_device if ocr_device != "cpu" else None,
+                        trust_remote_code=True,
+                        use_safetensors=True
                     )
-                    self.ocr = DeepSeekOCR(config=ocr_config)
+
+                    # Ensure model is on correct device if device_map didn't work
+                    if ocr_device != "cpu" and self.ocr_model.device.type == 'cpu':
+                        self.ocr_model = self.ocr_model.to(ocr_device)
+
+                    self.ocr_model = self.ocr_model.eval()
+                    self.ocr_device = ocr_device
+
+                    # Set model size parameters based on config
+                    model_size = self.config.get('deepseek_model_size', 'gundam').lower()
+                    if model_size == 'tiny':
+                        self.ocr_base_size = 512
+                        self.ocr_image_size = 512
+                        self.ocr_crop_mode = False
+                    elif model_size == 'small':
+                        self.ocr_base_size = 640
+                        self.ocr_image_size = 640
+                        self.ocr_crop_mode = False
+                    elif model_size == 'base':
+                        self.ocr_base_size = 1024
+                        self.ocr_image_size = 1024
+                        self.ocr_crop_mode = False
+                    elif model_size == 'large':
+                        self.ocr_base_size = 1280
+                        self.ocr_image_size = 1280
+                        self.ocr_crop_mode = False
+                    else:  # gundam (default)
+                        self.ocr_base_size = 1024
+                        self.ocr_image_size = 640
+                        self.ocr_crop_mode = True
+
                     self.ocr_backend = 'deepseek'
-                    logger.info(f"✓ DeepSeek-OCR loaded successfully on {ocr_device}")
+                    logger.info(f"✓ DeepSeek-OCR loaded successfully on {ocr_device} (size: {model_size})")
 
                 except (RuntimeError, torch.cuda.OutOfMemoryError) as e:
                     # DeepSeek-OCR failed (likely OOM), fall back to PaddleOCR
@@ -205,10 +245,11 @@ class ImageBinner:
                 else:
                     logger.info(f"Loading SAM ({self.sam_model_type}) on {detector_device}...")
                     try:
-                        # Load SAM model
+                        # Load SAM model directly on target device
                         sam = sam_model_registry[self.sam_model_type](checkpoint=self.sam_checkpoint)
+                        # SAM loads on CPU by default, move immediately if GPU is target
                         if detector_device != "cpu":
-                            sam.to(device=detector_device)
+                            sam = sam.to(device=detector_device)
 
                         # Create automatic mask generator
                         self.sam_generator = SamAutomaticMaskGenerator(
@@ -242,9 +283,13 @@ class ImageBinner:
 
                 # Load the selected YOLO model
                 model_file = model_mapping.get(self.yolo_model, 'yolov8n.pt')
-                self.yolo = YOLO(model_file)
+                # YOLO loads on CPU by default
                 if detector_device != "cpu":
+                    # Use device parameter during YOLO initialization if available, or move after
+                    self.yolo = YOLO(model_file)
                     self.yolo.to(detector_device)
+                else:
+                    self.yolo = YOLO(model_file)
                 logger.info(f"YOLO {self.yolo_model} loaded on {detector_device}")
 
                 # Store device for YOLO inference
@@ -253,13 +298,15 @@ class ImageBinner:
             # CLIP for caption similarity
             clip_device = device_map['clip']
             logger.info(f"Loading CLIP on {clip_device}...")
+            # Load CLIP with device parameter if supported, otherwise move after
             self.clip_model, _, self.clip_preprocess = open_clip.create_model_and_transforms(
                 'ViT-B-32',
-                pretrained='openai'
+                pretrained='openai',
+                device=clip_device if clip_device != "cpu" else None
             )
             self.clip_tokenizer = open_clip.get_tokenizer('ViT-B-32')
-            # Move CLIP to appropriate device
-            if clip_device != "cpu":
+            # Ensure model is on correct device
+            if clip_device != "cpu" and self.clip_model.device.type == 'cpu':
                 self.clip_model = self.clip_model.to(clip_device)
             self.clip_device = clip_device
             logger.info(f"CLIP loaded on {clip_device}")
@@ -301,11 +348,17 @@ class ImageBinner:
                         self.blip_processor.tokenizer.pad_token = self.blip_processor.tokenizer.eos_token
                         self.blip_processor.tokenizer.pad_token_id = self.blip_processor.tokenizer.eos_token_id
 
+                    # Determine dtype and device for loading
+                    model_dtype = torch.float16 if "cuda" in blip_device else torch.float32
+
                     self.blip_model = Blip2ForConditionalGeneration.from_pretrained(
                         "Salesforce/blip2-opt-2.7b",
-                        torch_dtype=torch.float16 if "cuda" in blip_device else torch.float32
+                        torch_dtype=model_dtype,
+                        device_map=blip_device if "cuda" in blip_device else None
                     )
-                    self.blip_model.to(blip_device)
+                    # Ensure model is on correct device if device_map didn't work
+                    if "cuda" in blip_device and str(self.blip_model.device) == 'cpu':
+                        self.blip_model.to(blip_device)
                     logger.info(f"BLIP-2 loaded on {blip_device}")
                     self.captioner_backend = 'blip2'
                 else:
@@ -370,26 +423,48 @@ class ImageBinner:
                         bboxes.append(bbox)
 
             else:  # deepseek backend
-                # Use grounding mode to get bounding boxes
-                prompt = "<image>\n<|grounding|>Detect all text regions in this image."
-                result = self.ocr.process(str(image_path), prompt=prompt)
+                # Use grounding mode to detect text regions
+                prompt = "<image>\n<|grounding|>Convert the document to markdown."
 
-                # Parse bounding boxes from result
-                # DeepSeekOCR returns bounding boxes in the format [[x1,y1,x2,y2], ...]
-                if hasattr(result, 'bounding_boxes') and result.bounding_boxes:
-                    bboxes = result.bounding_boxes
-                elif hasattr(result, 'text') and result.text:
-                    # Parse bounding boxes from text output if available
+                # Call the infer method with proper parameters
+                try:
+                    result = self.ocr_model.infer(
+                        self.ocr_tokenizer,
+                        prompt=prompt,
+                        image_file=str(image_path),
+                        output_path='',  # Don't save results
+                        base_size=self.ocr_base_size,
+                        image_size=self.ocr_image_size,
+                        crop_mode=self.ocr_crop_mode,
+                        save_results=False,
+                        test_compress=False
+                    )
+                except Exception as ocr_error:
+                    # Catch errors from DeepSeek OCR
+                    logger.warning(f"DeepSeek OCR failed for {image_path}: {ocr_error}")
+                    return 0, 0.0
+
+                # Parse the result text to extract bounding boxes
+                # DeepSeek OCR with grounding mode returns text with coordinates
+                if result and isinstance(result, str):
                     # Pattern to match coordinates like [x1,y1,x2,y2]
                     pattern = r'\[(\d+),(\d+),(\d+),(\d+)\]'
-                    matches = re.findall(pattern, result.text)
+                    matches = re.findall(pattern, result)
                     if matches:
-                        # Convert normalized coordinates (0-999) to actual pixels
-                        bboxes = [
-                            [int(x1) * img_w / 1000, int(y1) * img_h / 1000,
-                             int(x2) * img_w / 1000, int(y2) * img_h / 1000]
-                            for x1, y1, x2, y2 in matches
-                        ]
+                        # Filter out invalid bboxes (e.g., [0,0,999,999] which covers entire image)
+                        valid_matches = []
+                        for x1, y1, x2, y2 in matches:
+                            # Skip bboxes that cover the entire normalized space
+                            if not (int(x1) == 0 and int(y1) == 0 and int(x2) == 999 and int(y2) == 999):
+                                valid_matches.append((x1, y1, x2, y2))
+
+                        if valid_matches:
+                            # Convert normalized coordinates (0-999) to actual pixels
+                            bboxes = [
+                                [int(x1) * img_w / 1000, int(y1) * img_h / 1000,
+                                 int(x2) * img_w / 1000, int(y2) * img_h / 1000]
+                                for x1, y1, x2, y2 in valid_matches
+                            ]
 
             if not bboxes:
                 return 0, 0.0
