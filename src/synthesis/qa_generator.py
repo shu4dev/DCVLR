@@ -45,6 +45,12 @@ class QAGenerator:
 
             logger.info(f"Loading model {self.model_name}...")
             self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
+
+            # Set pad_token if not set
+            if self.tokenizer.pad_token is None:
+                self.tokenizer.pad_token = self.tokenizer.eos_token
+                self.tokenizer.pad_token_id = self.tokenizer.eos_token_id
+
             self.model = AutoModelForCausalLM.from_pretrained(
                 self.model_name,
                 torch_dtype=torch.float16 if self.device == "cuda" else torch.float32,
@@ -80,7 +86,7 @@ class QAGenerator:
             prompt = self._create_prompt(image_features, bin_type)
 
             # Generate response
-            inputs = self.tokenizer(prompt, return_tensors="pt")
+            inputs = self.tokenizer(prompt, return_tensors="pt", padding=True, return_attention_mask=True)
             if self.device == "cuda":
                 inputs = {k: v.cuda() for k, v in inputs.items()}
 
@@ -89,7 +95,7 @@ class QAGenerator:
                 max_new_tokens=self.config.get('max_tokens', 512),
                 temperature=self.config.get('temperature', 0.7),
                 do_sample=True,
-                pad_token_id=self.tokenizer.eos_token_id
+                pad_token_id=self.tokenizer.pad_token_id
             )
 
             response = self.tokenizer.decode(outputs[0], skip_special_tokens=True)

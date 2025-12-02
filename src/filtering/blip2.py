@@ -12,6 +12,11 @@ def generate_captions(images, isurl):
     # Load the BLIP-2 processor and model from Hugging Face Hub
     processor = Blip2Processor.from_pretrained("Salesforce/blip2-opt-2.7b")
 
+    # Set pad_token if not already set
+    if processor.tokenizer.pad_token is None:
+        processor.tokenizer.pad_token = processor.tokenizer.eos_token
+        processor.tokenizer.pad_token_id = processor.tokenizer.eos_token_id
+
     model = Blip2ForConditionalGeneration.from_pretrained("Salesforce/blip2-opt-2.7b", torch_dtype=torch.float16)
     model.to(device)
 

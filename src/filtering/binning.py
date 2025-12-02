@@ -265,6 +265,12 @@ class ImageBinner:
             if self.use_blip2:
                 # BLIP-2 for higher quality captions
                 self.blip_processor = Blip2Processor.from_pretrained("Salesforce/blip2-opt-2.7b")
+
+                # Set pad_token if not already set
+                if self.blip_processor.tokenizer.pad_token is None:
+                    self.blip_processor.tokenizer.pad_token = self.blip_processor.tokenizer.eos_token
+                    self.blip_processor.tokenizer.pad_token_id = self.blip_processor.tokenizer.eos_token_id
+
                 self.blip_model = Blip2ForConditionalGeneration.from_pretrained(
                     "Salesforce/blip2-opt-2.7b",
                     torch_dtype=torch.float16 if "cuda" in blip_device else torch.float32
@@ -276,6 +282,12 @@ class ImageBinner:
                 self.blip_processor = BlipProcessor.from_pretrained(
                     "Salesforce/blip-image-captioning-base"
                 )
+
+                # Set pad_token if not already set
+                if self.blip_processor.tokenizer.pad_token is None:
+                    self.blip_processor.tokenizer.pad_token = self.blip_processor.tokenizer.eos_token
+                    self.blip_processor.tokenizer.pad_token_id = self.blip_processor.tokenizer.eos_token_id
+
                 self.blip_model = BlipForConditionalGeneration.from_pretrained(
                     "Salesforce/blip-image-captioning-base"
                 )
