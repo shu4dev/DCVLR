@@ -72,6 +72,11 @@ class ImageBinner:
         # Model configuration
         self.use_blip2 = config.get('use_blip2', False)
 
+        # Captioning backend selection
+        self.captioner_backend = config.get('captioner_backend', 'blip').lower()  # 'blip', 'blip2', or 'moondream'
+        self.moondream_api_key = config.get('moondream_api_key', None)
+        self.moondream_caption_length = config.get('moondream_caption_length', 'normal')
+
         # Object detector selection
         self.object_detector = config.get('object_detector', 'yolo').lower()  # 'yolo' or 'sam'
 
@@ -259,42 +264,69 @@ class ImageBinner:
             self.clip_device = clip_device
             logger.info(f"CLIP loaded on {clip_device}")
 
-            # BLIP for captioning - support both BLIP and BLIP-2
-            blip_device = device_map['blip']
-            logger.info(f"Loading BLIP on {blip_device}...")
-            if self.use_blip2:
-                # BLIP-2 for higher quality captions
-                self.blip_processor = Blip2Processor.from_pretrained("Salesforce/blip2-opt-2.7b")
+            # Captioning backend - support BLIP, BLIP-2, or Moondream
+            if self.captioner_backend == 'moondream':
+                # Moondream API-based captioning
+                if not self.moondream_api_key:
+                    logger.warning("Moondream API key not provided, falling back to BLIP")
+                    self.captioner_backend = 'blip'
+                else:
+                    logger.info("Loading Moondream API captioner...")
+                    try:
+                        from src.synthesis.moondream_captioner import MoondreamCaptioner
+                        self.moondream_captioner = MoondreamCaptioner(
+                            api_key=self.moondream_api_key,
+                            length=self.moondream_caption_length
+                        )
+                        logger.info(f"Moondream API captioner loaded (length={self.moondream_caption_length})")
+                        self.blip_model = None
+                        self.blip_processor = None
+                        self.blip_device = None
+                    except Exception as e:
+                        logger.error(f"Failed to load Moondream captioner: {e}")
+                        logger.warning("Falling back to BLIP")
+                        self.captioner_backend = 'blip'
 
-                # Set pad_token if not already set
-                if self.blip_processor.tokenizer.pad_token is None:
-                    self.blip_processor.tokenizer.pad_token = self.blip_processor.tokenizer.eos_token
-                    self.blip_processor.tokenizer.pad_token_id = self.blip_processor.tokenizer.eos_token_id
+            if self.captioner_backend in ['blip', 'blip2']:
+                # BLIP/BLIP-2 for local captioning
+                blip_device = device_map['blip']
+                logger.info(f"Loading BLIP on {blip_device}...")
 
-                self.blip_model = Blip2ForConditionalGeneration.from_pretrained(
-                    "Salesforce/blip2-opt-2.7b",
-                    torch_dtype=torch.float16 if "cuda" in blip_device else torch.float32
-                )
-                self.blip_model.to(blip_device)
-                logger.info(f"BLIP-2 loaded on {blip_device}")
-            else:
-                # BLIP-base for faster processing
-                self.blip_processor = BlipProcessor.from_pretrained(
-                    "Salesforce/blip-image-captioning-base"
-                )
+                if self.captioner_backend == 'blip2' or self.use_blip2:
+                    # BLIP-2 for higher quality captions
+                    self.blip_processor = Blip2Processor.from_pretrained("Salesforce/blip2-opt-2.7b")
 
-                # Set pad_token if not already set
-                if self.blip_processor.tokenizer.pad_token is None:
-                    self.blip_processor.tokenizer.pad_token = self.blip_processor.tokenizer.eos_token
-                    self.blip_processor.tokenizer.pad_token_id = self.blip_processor.tokenizer.eos_token_id
+                    # Set pad_token if not already set
+                    if self.blip_processor.tokenizer.pad_token is None:
+                        self.blip_processor.tokenizer.pad_token = self.blip_processor.tokenizer.eos_token
+                        self.blip_processor.tokenizer.pad_token_id = self.blip_processor.tokenizer.eos_token_id
 
-                self.blip_model = BlipForConditionalGeneration.from_pretrained(
-                    "Salesforce/blip-image-captioning-base"
-                )
-                self.blip_model.to(blip_device)
-                logger.info(f"BLIP-base loaded on {blip_device}")
+                    self.blip_model = Blip2ForConditionalGeneration.from_pretrained(
+                        "Salesforce/blip2-opt-2.7b",
+                        torch_dtype=torch.float16 if "cuda" in blip_device else torch.float32
+                    )
+                    self.blip_model.to(blip_device)
+                    logger.info(f"BLIP-2 loaded on {blip_device}")
+                    self.captioner_backend = 'blip2'
+                else:
+                    # BLIP-base for faster processing
+                    self.blip_processor = BlipProcessor.from_pretrained(
+                        "Salesforce/blip-image-captioning-base"
+                    )
 
-            self.blip_device = blip_device
+                    # Set pad_token if not already set
+                    if self.blip_processor.tokenizer.pad_token is None:
+                        self.blip_processor.tokenizer.pad_token = self.blip_processor.tokenizer.eos_token
+                        self.blip_processor.tokenizer.pad_token_id = self.blip_processor.tokenizer.eos_token_id
+
+                    self.blip_model = BlipForConditionalGeneration.from_pretrained(
+                        "Salesforce/blip-image-captioning-base"
+                    )
+                    self.blip_model.to(blip_device)
+                    logger.info(f"BLIP-base loaded on {blip_device}")
+                    self.captioner_backend = 'blip'
+
+                self.blip_device = blip_device
 
             logger.info("All models initialized successfully")
 
@@ -520,7 +552,7 @@ class ImageBinner:
     
     def generate_caption(self, image_path: str) -> str:
         """
-        Generate caption for image using BLIP or BLIP-2.
+        Generate caption for image using BLIP, BLIP-2, or Moondream.
 
         Args:
             image_path: Path to the image file
@@ -529,9 +561,15 @@ class ImageBinner:
             Generated caption text
         """
         try:
+            # Use Moondream API if configured
+            if self.captioner_backend == 'moondream':
+                caption = self.moondream_captioner.generate_caption(image_path)
+                return caption if caption else ""
+
+            # Use BLIP/BLIP-2 for local processing
             image = Image.open(image_path).convert('RGB')
 
-            if self.use_blip2:
+            if self.captioner_backend == 'blip2':
                 # BLIP-2 processing
                 inputs = self.blip_processor(images=image, return_tensors="pt").to(
                     self.blip_device,

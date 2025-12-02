@@ -5,6 +5,9 @@ Implementation of the Team-1 reasoning-focused data synthesis workflow (see `Imp
 ## Highlights
 - **End-to-end pipeline** – filtering, binning, synthesis, and validation live in a single orchestrator (`team1_pipeline.py`).
 - **Modular stages** – swap filtering, LLM, or validation components by editing `configs/default_config.yaml`.
+- **Flexible captioning** – Choose between BLIP, BLIP-2, or Moondream API for image captions.
+- **Feature extraction modes** – Full features (OCR+objects+captions) or caption-only for 70% faster processing.
+- **Intermediate saves** – Automatically saves results after each stage for debugging and recovery.
 - **Scriptable + importable** – run via `scripts/run_pipeline.py` or embed with the `DataSynthesisPipeline` class.
 - **Reproducible config** – every stage is parameterized by YAML and persisted along with outputs/logs.
 
@@ -59,9 +62,10 @@ pip install -e .[dev,notebook]
 The default configuration lives in `configs/default_config.yaml`. Each block corresponds to a pipeline stage:
 
 - `filtering` – min resolution, NSFW and watermark thresholds, duplicate detection.
-- `binning` – OCR/text thresholds, object detector selection (YOLO/SAM), CLIP similarity cutoffs, optional BLIP-2 support.
-- `synthesis` – LLM ID, decoding params, OCR/YOLO/BLIP model names used by the feature extractor.
+- `binning` – OCR/text thresholds, object detector selection (YOLO/SAM), captioning backend (BLIP/BLIP-2/Moondream), CLIP similarity cutoffs.
+- `synthesis` – LLM ID, decoding params, feature extraction mode (full/caption-only), model configurations.
 - `validation` – minimum lengths and reasoning/grounding checks.
+- `output` – intermediate saves toggle, compression, output formats.
 
 Example snippet:
 ```yaml
@@ -72,19 +76,24 @@ filtering:
 binning:
   text_boxes_threshold: 2
   object_count_threshold: 5
-  use_blip2: false              # Set true for higher quality captions
 
-  # Object Detection Backend Selection
-  object_detector: 'yolo'       # Options: 'yolo' or 'sam'
-  yolo_model: 'yolov8n'         # Options: yolov8n, yolov8s, yolov9s, yolov10s, yolov11s
+  # Captioning Backend: 'blip' (fast), 'blip2' (quality), or 'moondream' (API)
+  captioner_backend: 'blip'
+  moondream_api_key: null       # Required for Moondream
 
-  # SAM settings (only used if object_detector: 'sam')
-  sam_model_type: 'vit_b'       # Options: vit_b (375MB), vit_l (1.2GB), vit_h (2.4GB)
-  sam_checkpoint: 'models/sam_vit_b_01ec64.pth'
+  # Object Detection: 'yolo' (fast) or 'sam' (thorough)
+  object_detector: 'yolo'
+  yolo_model: 'yolov8n'
 
 synthesis:
   llm_model: "tiiuae/falcon-7b-instruct"
   temperature: 0.7
+
+  # Feature mode: true (detailed) or false (fast, caption-only)
+  use_full_features: true
+
+output:
+  save_intermediate: true       # Save results after each stage
 ```
 Copy the file, tweak the values, and pass the new path through `--config` (CLI) or the `config_path` argument (Python).
 
@@ -117,6 +126,44 @@ The binning stage uses object detection to categorize images into Bin B (Object/
   ```
 
 **Fallback behavior**: If SAM fails to load (not installed or checkpoint missing), the pipeline automatically falls back to YOLO.
+
+### Captioning Backend Selection: BLIP vs BLIP-2 vs Moondream
+
+The pipeline supports three captioning backends for generating image descriptions:
+
+#### BLIP (Default)
+- **Pros**: Fast (~0.5s/image), lightweight (~1GB VRAM), good quality
+- **Cons**: Lower quality than BLIP-2 or Moondream
+- **Best for**: Quick processing, limited GPU memory, standard quality needs
+- **Configuration**:
+  ```yaml
+  binning:
+    captioner_backend: 'blip'
+  ```
+
+#### BLIP-2
+- **Pros**: Excellent quality, runs locally, no API costs
+- **Cons**: Heavy (~10GB VRAM), slower (~1.0s/image)
+- **Best for**: High-quality captions, sufficient GPU memory, offline processing
+- **Configuration**:
+  ```yaml
+  binning:
+    captioner_backend: 'blip2'
+  ```
+
+#### Moondream API (New!)
+- **Pros**: Excellent quality, no GPU needed, fast (~0.3s/image), cloud-based
+- **Cons**: Requires API key, costs ~$0.002 per image, needs internet
+- **Best for**: Limited GPU memory, large-scale processing, cloud workflows
+- **Configuration**:
+  ```yaml
+  binning:
+    captioner_backend: 'moondream'
+    moondream_api_key: 'YOUR_API_KEY'
+    moondream_caption_length: 'normal'  # 'short', 'normal', or 'long'
+  ```
+
+Get your Moondream API key at [moondream.ai](https://moondream.ai). See [MOONDREAM_INTEGRATION.md](MOONDREAM_INTEGRATION.md) for detailed setup instructions.
 
 ### OCR Backend Selection: DeepSeek-OCR vs PaddleOCR
 
@@ -156,6 +203,49 @@ binning:
 - GPU 3: BLIP (captioning)
 
 If fewer GPUs are available, models are distributed optimally. Single GPU mode is automatic when only one GPU is detected.
+
+## Key Configuration Options
+
+### Feature Extraction Mode (Q/A Synthesis)
+
+Control how much visual information is extracted for Q/A generation:
+
+```yaml
+synthesis:
+  use_full_features: true  # Options: true or false
+```
+
+| Mode | What's Extracted | Processing Speed | Memory | Best For |
+|------|-----------------|------------------|--------|----------|
+| **true** (Full) | OCR + objects + spatial relations + captions | Slower (~1.6s/image) | 5-10GB | Documents, charts, technical images |
+| **false** (Caption-only) | Captions only | **70% faster** (~0.5s/image) | 1-2GB | Photos, simple scenes, large batches |
+
+**Example Q/A outputs:**
+
+*Full features:* "What is the revenue shown in the 2023 report?" → "$100M" (uses OCR text)
+
+*Caption-only:* "What type of information is displayed?" → "Sales data" (uses caption only)
+
+See [FEATURE_EXTRACTION_MODES.md](FEATURE_EXTRACTION_MODES.md) for detailed comparison.
+
+### Intermediate Results Saving
+
+Save pipeline results after each stage for debugging and recovery:
+
+```yaml
+output:
+  save_intermediate: true  # Options: true or false
+```
+
+**When enabled**, creates `output/intermediate/` with:
+- `stage1_filtering/` - Filtered image lists and statistics
+- `stage2_binning/` - Images by bin with distribution stats
+- `stage3_synthesis/` - Generated Q/A pairs before validation
+- `stage4_validation/` - Validated Q/A pairs with removal rates
+
+**Benefits**: Resume from failures, debug issues, analyze per-stage results.
+
+See [INTERMEDIATE_SAVES_FEATURE.md](INTERMEDIATE_SAVES_FEATURE.md) for details.
 
 ## Data Structure
 
@@ -360,8 +450,21 @@ Images are then balanced according to the specified ratio (default 40:40:20).
 
 ### Stage 3: Q/A Synthesis
 Generates question-answer-reasoning triplets:
-- Extracts visual features (OCR text, objects, captions, colors, layout)
-- Uses LLM with bin-specific prompts to generate contextual questions
+
+**Feature Extraction Modes**:
+- **Full Features** (default): Extracts OCR text, objects, spatial relations, and captions for detailed Q/A pairs
+- **Caption-Only**: Uses only image captions for faster, lighter processing (70% faster, 80% less VRAM)
+
+Configure in `configs/default_config.yaml`:
+```yaml
+synthesis:
+  use_full_features: true  # false for caption-only mode
+```
+
+See [FEATURE_EXTRACTION_MODES.md](FEATURE_EXTRACTION_MODES.md) for detailed comparison and use cases.
+
+**Q/A Generation**:
+- Uses LLM with bin-specific prompts (or caption-only prompts) to generate contextual questions
 - Creates detailed reasoning chains grounded in image content
 - Different question types per bin (text comprehension, spatial reasoning, commonsense)
 
@@ -385,11 +488,18 @@ Multi-GPU setup can reduce total time by 40-60%.
 
 ## Additional Documentation
 
-For more detailed information, see:
+### Core Documentation
+- [configs/default_config.yaml](configs/default_config.yaml) - Full configuration options with detailed comments
 - [DATA_STRUCTURE.md](DATA_STRUCTURE.md) - Complete guide to data organization
 - [PIPELINE_DETAILED_BREAKDOWN.md](PIPELINE_DETAILED_BREAKDOWN.md) - In-depth stage-by-stage breakdown with examples
 - [PIPELINE_FLOW.md](PIPELINE_FLOW.md) - Visual flow diagrams
-- [configs/default_config.yaml](configs/default_config.yaml) - Full configuration options
+
+### Feature Guides
+- [MOONDREAM_INTEGRATION.md](MOONDREAM_INTEGRATION.md) - Complete guide to Moondream API captioning
+- [MOONDREAM_QUICK_START.md](MOONDREAM_QUICK_START.md) - 3-step Moondream setup
+- [FEATURE_EXTRACTION_MODES.md](FEATURE_EXTRACTION_MODES.md) - Full vs caption-only feature extraction
+- [FEATURE_MODES_QUICK_GUIDE.md](FEATURE_MODES_QUICK_GUIDE.md) - Quick reference for feature modes
+- [INTERMEDIATE_SAVES_FEATURE.md](INTERMEDIATE_SAVES_FEATURE.md) - Intermediate results saving guide
 
 ## Troubleshooting
 
@@ -402,16 +512,20 @@ python test_train_folders_simple.py --data-dir ./data
 This verifies that images are in the correct `dataset/train/` structure.
 
 ### "Out of memory (OOM)"
-1. Enable multi-GPU in config: `enable_multi_gpu: true`
-2. Force PaddleOCR instead of DeepSeek: `use_paddle_ocr: true`
-3. Use smaller YOLO model: `yolo_model: 'yolov8n'`
-4. Reduce batch sizes in config
+1. **Use caption-only mode**: `use_full_features: false` (saves 80% VRAM)
+2. **Use Moondream API**: `captioner_backend: 'moondream'` (no local VRAM needed)
+3. Enable multi-GPU in config: `enable_multi_gpu: true`
+4. Force PaddleOCR instead of DeepSeek: `use_paddle_ocr: true`
+5. Use smaller YOLO model: `yolo_model: 'yolov8n'`
+6. Reduce batch sizes in config
 
 ### "Low quality Q/A pairs"
-1. Review feature extraction quality (OCR, object detection working correctly?)
-2. Check LLM prompts and generation parameters
-3. Adjust validation thresholds in config
-4. Ensure images are properly categorized into bins
+1. **Try full features mode**: `use_full_features: true` for more detailed Q/A
+2. **Try better captioning**: `captioner_backend: 'blip2'` or `'moondream'`
+3. Review feature extraction quality (OCR, object detection working correctly?)
+4. Check LLM prompts and generation parameters
+5. Adjust validation thresholds in config
+6. Ensure images are properly categorized into bins
 
 ### "Models not loading"
 1. Check all dependencies are installed: `pip install -r requirements.txt`

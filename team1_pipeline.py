@@ -60,10 +60,14 @@ class DataSynthesisPipeline:
         # Check if intermediate saving is enabled
         self.save_intermediate = self.config.get('output', {}).get('save_intermediate', True)
 
+        # Check Q/A synthesis feature mode
+        self.use_full_features = self.config.get('synthesis', {}).get('use_full_features', True)
+        caption_only = not self.use_full_features
+
         # Initialize components
         self.image_filter = ImageFilter(self.config['filtering'])
         self.image_binner = ImageBinner(self.config['binning'])
-        self.feature_extractor = FeatureExtractor(device=device)
+        self.feature_extractor = FeatureExtractor(device=device, caption_only=caption_only)
         """
         self.qa_generator = QAGenerator(
             model_name=llm_model,

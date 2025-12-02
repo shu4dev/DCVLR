@@ -18,41 +18,50 @@ class FeatureExtractor:
     - Spatial relationships
     """
 
-    def __init__(self, device: str = "cuda"):
+    def __init__(self, device: str = "cuda", caption_only: bool = False):
         """
         Initialize feature extractors.
 
         Args:
             device: Device to run models on ('cuda' or 'cpu')
+            caption_only: If True, only load captioning model (skip OCR and object detection)
         """
         self.device = device
+        self.caption_only = caption_only
         self.ocr_model = None
         self.object_detector = None
         self.captioner = None
 
+        logger.info(f"FeatureExtractor initialized (caption_only={caption_only})")
         self._load_models()
 
     def _load_models(self):
         """Load all feature extraction models."""
-        # Load OCR model
-        try:
-            import easyocr
-            self.ocr_model = easyocr.Reader(['en'], gpu=self.device == 'cuda')
-            logger.info("OCR model loaded")
-        except Exception as e:
-            logger.warning(f"Could not load OCR model: {e}")
+        # In caption-only mode, skip OCR and object detection
+        if self.caption_only:
+            logger.info("Caption-only mode: Skipping OCR and object detection models")
             self.ocr_model = None
-
-        # Load object detector (YOLO)
-        try:
-            from ultralytics import YOLO
-            self.object_detector = YOLO('yolov8n.pt')
-            logger.info("Object detector loaded")
-        except Exception as e:
-            logger.warning(f"Could not load object detector: {e}")
             self.object_detector = None
+        else:
+            # Load OCR model
+            try:
+                import easyocr
+                self.ocr_model = easyocr.Reader(['en'], gpu=self.device == 'cuda')
+                logger.info("OCR model loaded")
+            except Exception as e:
+                logger.warning(f"Could not load OCR model: {e}")
+                self.ocr_model = None
 
-        # Load image captioner
+            # Load object detector (YOLO)
+            try:
+                from ultralytics import YOLO
+                self.object_detector = YOLO('yolov8n.pt')
+                logger.info("Object detector loaded")
+            except Exception as e:
+                logger.warning(f"Could not load object detector: {e}")
+                self.object_detector = None
+
+        # Always load image captioner
         try:
             from transformers import pipeline
             self.captioner = pipeline(
@@ -211,7 +220,21 @@ class FeatureExtractor:
         """
         logger.debug(f"Extracting features from {image_path}")
 
-        # Extract all features
+        # Caption-only mode: Only extract caption
+        if self.caption_only:
+            caption = self.extract_caption(image_path)
+            features = {
+                'caption': caption,
+                'scene': caption,
+                'ocr_text': '',
+                'objects': [],
+                'object_details': [],
+                'spatial_relations': [],
+                'attributes': []
+            }
+            return features
+
+        # Full extraction mode: Extract all features
         ocr_text = self.extract_ocr(image_path)
         objects = self.extract_objects(image_path)
         caption = self.extract_caption(image_path)

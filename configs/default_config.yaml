@@ -34,6 +34,16 @@ binning:
   # Enhanced model options (merged from blip2.py and yolov11-filter.py)
   use_blip2: false              # Use BLIP-2 for higher quality captions (requires more GPU memory)
 
+  # Captioning Backend Selection
+  captioner_backend: 'moondream'     # Options: 'blip', 'blip2', 'moondream'
+                                # blip = BLIP-base (fast, local, ~1GB VRAM)
+                                # blip2 = BLIP-2 (high quality, local, ~10GB VRAM)
+                                # moondream = Moondream API (cloud-based, requires API key)
+
+  # Moondream API settings (only used if captioner_backend: 'moondream')
+  moondream_api_key: null       # Your Moondream API key (required for Moondream)
+  moondream_caption_length: 'long'  # Options: 'short', 'normal', 'long'
+
   # Object Detection Backend Selection
   object_detector: 'yolo'       # Options: 'yolo' or 'sam'
                                 # yolo = Fast, provides class labels and object types
@@ -57,8 +67,19 @@ synthesis:
   do_sample: true             # Enable sampling
   num_templates_per_bin: 5    # Number of prompt templates per bin
   batch_size: 1               # Batch size for generation
-  
-  # Feature extraction settings
+
+  # Feature Extraction Mode
+  use_full_features: true      # Options: true or false
+                               # true = Use all extracted features (OCR, objects, spatial relations, captions)
+                               #        - More detailed Q/A pairs
+                               #        - Longer processing time
+                               #        - Requires OCR and object detection models
+                               # false = Use only image captions
+                               #         - Simpler Q/A pairs
+                               #         - Faster processing
+                               #         - Lower memory usage (no OCR/object detection needed)
+
+  # Feature extraction settings (only used if use_full_features: true)
   ocr_lang: "en"              # OCR language
   use_angle_cls: true         # Enable angle classification in OCR
   yolo_model: "yolov8n.pt"    # YOLO model for object detection

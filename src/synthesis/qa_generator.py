@@ -34,6 +34,10 @@ class QAGenerator:
         self.model = None
         self.tokenizer = None
 
+        # Feature extraction mode
+        self.use_full_features = self.config.get('use_full_features', True)
+        logger.info(f"Q/A Generator initialized with use_full_features={self.use_full_features}")
+
         # Load model lazily to avoid import errors
         self._load_model()
 
@@ -109,6 +113,23 @@ class QAGenerator:
 
     def _create_prompt(self, features: Dict[str, Any], bin_type: str) -> str:
         """Create a prompt for the LLM based on image features and bin type."""
+
+        # Caption-only mode: Use only caption for all bins
+        if not self.use_full_features:
+            caption = features.get('caption', 'N/A')
+            prompt = f"""Based on the following image caption, generate a question along with an answer and step-by-step reasoning.
+
+Image caption: {caption}
+
+Generate a JSON response with:
+- question: A contextual question about the image
+- answer: The correct answer
+- reasoning: Step-by-step reasoning to arrive at the answer
+
+Response:"""
+            return prompt
+
+        # Full features mode: Use all extracted features
         if bin_type == 'A':
             # Text/Arithmetic focused
             prompt = f"""Based on the following image information, generate a question that requires reading text or performing arithmetic, along with an answer and step-by-step reasoning.
