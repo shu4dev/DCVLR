@@ -11,6 +11,7 @@ import os
 import re
 import requests
 from io import BytesIO
+import zipfile
 
 from datasets import load_dataset, DatasetDict, Image as HFImage
 from PIL import Image
@@ -19,7 +20,7 @@ from tqdm.auto import tqdm
 
 REPO_IDS = [
     "HuggingFaceM4/ChartQA",
-    "lmms-lab/multimodal-open-r1-8k-verified"
+    "lmms-lab/multimodal-open-r1-8k-verified",
     "vidore/infovqa_train",
     "derek-thomas/ScienceQA",
     "Luckyjhg/Geo170K",
@@ -71,6 +72,37 @@ def download_image_from_url(url: str, timeout: int = 20) -> Image.Image:
     return Image.open(BytesIO(resp.content)).convert("RGB")
 
 
+def extract_image_from_zip(path_str: str) -> Image.Image:
+    """
+    Extract an image from a zip file.
+    Handles paths in formats like:
+      - "zip://path/to/file.zip::path/inside.jpg"
+      - "path/to/file.zip::path/inside.jpg"
+    """
+    # Parse the zip path
+    if path_str.startswith("zip://"):
+        path_str = path_str[6:]  # Remove "zip://" prefix
+
+    if "::" in path_str:
+        zip_path, inner_path = path_str.split("::", 1)
+    else:
+        # Try to detect .zip in the path
+        parts = path_str.split(".zip")
+        if len(parts) >= 2:
+            zip_path = parts[0] + ".zip"
+            inner_path = parts[1].lstrip("/\\")
+        else:
+            raise ValueError(f"Cannot parse zip path: {path_str}")
+
+    # Extract and open the image
+    with zipfile.ZipFile(zip_path, 'r') as zf:
+        with zf.open(inner_path) as img_file:
+            img = Image.open(img_file).convert("RGB")
+            # Load the image data immediately since the file will be closed
+            img.load()
+            return img
+
+
 def save_image_value(value, out_path: Path):
     """
     Handle different types of image-like values:
@@ -91,7 +123,11 @@ def save_image_value(value, out_path: Path):
         elif "url" in value and is_url(value["url"]):
             img = download_image_from_url(value["url"])
         elif "path" in value:
-            img = Image.open(value["path"]).convert("RGB")
+            path_val = value["path"]
+            if path_val.startswith("zip://") or "::" in path_val or ".zip" in path_val:
+                img = extract_image_from_zip(path_val)
+            else:
+                img = Image.open(path_val).convert("RGB")
 
     # Case 3: plain string
     elif isinstance(value, str):
@@ -99,11 +135,19 @@ def save_image_value(value, out_path: Path):
             img = download_image_from_url(value)
         else:
             # assume local file path
-            img = Image.open(value).convert("RGB")
+            # Check if it's a path inside a zip file (format: "zip://path/to/file.zip::path/inside.jpg")
+            if value.startswith("zip://") or "::" in value:
+                img = extract_image_from_zip(value)
+            else:
+                img = Image.open(value).convert("RGB")
 
     if img is None:
         # Skip if we couldn't decode
         return False
+
+    # Convert to RGB if needed (e.g., RGBA images can't be saved as JPEG)
+    if img.mode != "RGB":
+        img = img.convert("RGB")
 
     out_path.parent.mkdir(parents=True, exist_ok=True)
     img.save(out_path)
