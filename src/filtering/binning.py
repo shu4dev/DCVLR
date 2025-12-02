@@ -405,7 +405,8 @@ class ImageBinner:
                 box_h = abs(y2 - y1)
                 text_area += box_w * box_h
 
-            text_area_ratio = text_area / img_area
+            # Avoid division by zero
+            text_area_ratio = text_area / img_area if img_area > 0 else 0.0
 
             return num_boxes, text_area_ratio
 
@@ -575,13 +576,34 @@ class ImageBinner:
                     self.blip_device,
                     torch.float16 if "cuda" in self.blip_device else torch.float32
                 )
-                generated_ids = self.blip_model.generate(**inputs, pad_token_id=self.blip_processor.tokenizer.pad_token_id)
-                caption = self.blip_processor.batch_decode(generated_ids, skip_special_tokens=True)[0].strip()
+
+                # Check if inputs are valid (not empty)
+                if 'pixel_values' in inputs and inputs['pixel_values'].numel() > 0:
+                    generated_ids = self.blip_model.generate(
+                        **inputs,
+                        pad_token_id=self.blip_processor.tokenizer.pad_token_id,
+                        attention_mask=inputs.get('attention_mask', None)
+                    )
+                    caption = self.blip_processor.batch_decode(generated_ids, skip_special_tokens=True)[0].strip()
+                else:
+                    logger.warning(f"Empty input tensors for {image_path}, skipping caption generation")
+                    return ""
             else:
                 # BLIP-base processing
                 inputs = self.blip_processor(image, return_tensors="pt").to(self.blip_device)
-                out = self.blip_model.generate(**inputs, max_new_tokens=50, pad_token_id=self.blip_processor.tokenizer.pad_token_id)
-                caption = self.blip_processor.decode(out[0], skip_special_tokens=True)
+
+                # Check if inputs are valid (not empty)
+                if 'pixel_values' in inputs and inputs['pixel_values'].numel() > 0:
+                    out = self.blip_model.generate(
+                        **inputs,
+                        max_new_tokens=50,
+                        pad_token_id=self.blip_processor.tokenizer.pad_token_id,
+                        attention_mask=inputs.get('attention_mask', None)
+                    )
+                    caption = self.blip_processor.decode(out[0], skip_special_tokens=True)
+                else:
+                    logger.warning(f"Empty input tensors for {image_path}, skipping caption generation")
+                    return ""
 
             return caption
         except Exception as e:
