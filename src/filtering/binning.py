@@ -843,3 +843,74 @@ class ImageBinner:
 
         logger.info(f"All {len(images)} images have been processed")
         return captions
+
+    @staticmethod
+    def load_images_from_train_folders(data_dir: str) -> List[Dict]:
+        """
+        Load all images from train folders within subdirectories of data_dir.
+
+        Expected structure:
+        data_dir/
+            folder1/
+                train/
+                    image1.jpg
+                    image2.png
+                    ...
+            folder2/
+                train/
+                    image3.jpg
+                    ...
+            ...
+
+        Args:
+            data_dir: Path to the data directory containing subdirectories with train folders
+
+        Returns:
+            List of dictionaries with image metadata:
+            [{'path': '/path/to/image.jpg', 'dataset': 'folder1', 'filename': 'image1.jpg'}, ...]
+        """
+        data_path = Path(data_dir)
+
+        if not data_path.exists():
+            logger.error(f"Data directory does not exist: {data_dir}")
+            return []
+
+        if not data_path.is_dir():
+            logger.error(f"Data path is not a directory: {data_dir}")
+            return []
+
+        # Common image extensions
+        image_extensions = {'.jpg', '.jpeg', '.png', '.bmp', '.gif', '.tiff', '.webp'}
+
+        images = []
+
+        # Iterate through subdirectories in data_dir
+        for subfolder in data_path.iterdir():
+            if not subfolder.is_dir():
+                continue
+
+            # Look for train folder within this subfolder
+            train_folder = subfolder / 'train'
+
+            if not train_folder.exists() or not train_folder.is_dir():
+                logger.warning(f"No train folder found in {subfolder.name}, skipping...")
+                continue
+
+            logger.info(f"Loading images from {subfolder.name}/train/")
+
+            # Load all images from train folder
+            img_count = 0
+            for img_path in train_folder.iterdir():
+                if img_path.is_file() and img_path.suffix.lower() in image_extensions:
+                    images.append({
+                        'path': str(img_path.absolute()),
+                        'dataset': subfolder.name,
+                        'filename': img_path.name
+                    })
+                    img_count += 1
+
+            logger.info(f"  Loaded {img_count} images from {subfolder.name}/train/")
+
+        logger.info(f"Total images loaded: {len(images)} from {len(set(img['dataset'] for img in images))} datasets")
+
+        return images
