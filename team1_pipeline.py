@@ -375,16 +375,27 @@ class DataSynthesisPipeline:
             print(f"{model_name:12s} - Avg time: {avg_time:.3f}s, Pass rate: {pass_rate:.1f}%")
 
     def _load_image_paths(self) -> List[str]:
-        """Load all image paths from the images directory, including subdirectories."""
-        image_extensions = {'.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp'}
+        """
+        Load all image paths from train subdirectories within the images directory.
 
-        paths = []
-        for ext in image_extensions:
-            # Use ** to recursively search all subdirectories
-            paths.extend(Path(self.images_dir).glob(f"**/*{ext}"))
-            paths.extend(Path(self.images_dir).glob(f"**/*{ext.upper()}"))
+        Expected structure:
+        images_dir/
+            dataset1/
+                train/
+                    image1.jpg
+                    image2.png
+            dataset2/
+                train/
+                    image3.jpg
 
-        return [str(p) for p in paths]
+        Returns:
+            List of absolute image paths from all dataset/train folders
+        """
+        # Use the static method from ImageBinner to load images from train folders
+        images_data = ImageBinner.load_images_from_train_folders(self.images_dir)
+
+        # Extract just the paths
+        return [img['path'] for img in images_data]
 
 
 def main():
