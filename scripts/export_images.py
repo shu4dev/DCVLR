@@ -19,13 +19,8 @@ from tqdm.auto import tqdm
 
 
 REPO_IDS = [
-    "HuggingFaceM4/ChartQA",
-    "lmms-lab/multimodal-open-r1-8k-verified",
-    "vidore/infovqa_train",
-    "derek-thomas/ScienceQA",
     "Luckyjhg/Geo170K",
     "Zhiqiang007/MathV360K",
-    "oumi-ai/walton-multimodal-cold-start-r1-format"
 ]
 
 ROOT_OUT = Path("./data")
@@ -72,12 +67,15 @@ def download_image_from_url(url: str, timeout: int = 20) -> Image.Image:
     return Image.open(BytesIO(resp.content)).convert("RGB")
 
 
-def extract_image_from_zip(path_str: str) -> Image.Image:
+def extract_image_from_zip(path_str: str, extract_dir: Path = None) -> Image.Image:
     """
     Extract an image from a zip file.
     Handles paths in formats like:
       - "zip://path/to/file.zip::path/inside.jpg"
       - "path/to/file.zip::path/inside.jpg"
+
+    If extract_dir is provided, extracts the entire zip file to that directory
+    and then loads the image from the extracted location.
     """
     # Parse the zip path
     if path_str.startswith("zip://"):
@@ -94,21 +92,48 @@ def extract_image_from_zip(path_str: str) -> Image.Image:
         else:
             raise ValueError(f"Cannot parse zip path: {path_str}")
 
-    # Extract and open the image
-    with zipfile.ZipFile(zip_path, 'r') as zf:
-        with zf.open(inner_path) as img_file:
-            img = Image.open(img_file).convert("RGB")
-            # Load the image data immediately since the file will be closed
-            img.load()
-            return img
+    # If extract_dir is provided, extract the zip file first
+    if extract_dir:
+        extract_dir.mkdir(parents=True, exist_ok=True)
+        extracted_image_path = extract_dir / inner_path
+
+        # Check if already extracted
+        if not extracted_image_path.exists():
+            # Extract the specific file or entire zip if not already done
+            with zipfile.ZipFile(zip_path, 'r') as zf:
+                # Check if we need to extract the whole zip
+                marker_file = extract_dir / ".extracted"
+                if not marker_file.exists():
+                    print(f"  Extracting {zip_path} to {extract_dir}...")
+                    zf.extractall(extract_dir)
+                    marker_file.touch()
+                elif inner_path not in zf.namelist():
+                    raise FileNotFoundError(f"Image {inner_path} not found in {zip_path}")
+                else:
+                    # Extract just this file
+                    zf.extract(inner_path, extract_dir)
+
+        # Load from extracted location
+        img = Image.open(extracted_image_path).convert("RGB")
+        return img
+    else:
+        # Extract and open the image directly from zip (original behavior)
+        with zipfile.ZipFile(zip_path, 'r') as zf:
+            with zf.open(inner_path) as img_file:
+                img = Image.open(img_file).convert("RGB")
+                # Load the image data immediately since the file will be closed
+                img.load()
+                return img
 
 
-def save_image_value(value, out_path: Path):
+def save_image_value(value, out_path: Path, extract_dir: Path = None):
     """
     Handle different types of image-like values:
       - PIL.Image.Image
       - dict with 'path' or 'url'
       - string path or URL
+
+    If extract_dir is provided, zip files will be extracted there.
     """
     img = None
 
@@ -124,22 +149,47 @@ def save_image_value(value, out_path: Path):
             img = download_image_from_url(value["url"])
         elif "path" in value:
             path_val = value["path"]
-            if path_val.startswith("zip://") or "::" in path_val or ".zip" in path_val:
-                img = extract_image_from_zip(path_val)
-            else:
-                img = Image.open(path_val).convert("RGB")
+            # Try to load from extracted directory first if it exists
+            if extract_dir and extract_dir.exists():
+                # Try to find the image in extracted directory by searching for the filename
+                path_obj = Path(path_val)
+                possible_paths = list(extract_dir.rglob(path_obj.name))
+                if not possible_paths:
+                    # Try with the full relative path structure (e.g., DVQA/images/file.png)
+                    possible_paths = list(extract_dir.rglob(str(path_obj)))
+                if possible_paths:
+                    img = Image.open(possible_paths[0]).convert("RGB")
+
+            # If not found in extracted dir, try original methods
+            if img is None:
+                if path_val.startswith("zip://") or "::" in path_val or ".zip" in path_val:
+                    img = extract_image_from_zip(path_val, extract_dir)
+                else:
+                    img = Image.open(path_val).convert("RGB")
 
     # Case 3: plain string
     elif isinstance(value, str):
         if is_url(value):
             img = download_image_from_url(value)
         else:
-            # assume local file path
-            # Check if it's a path inside a zip file (format: "zip://path/to/file.zip::path/inside.jpg")
-            if value.startswith("zip://") or "::" in value:
-                img = extract_image_from_zip(value)
-            else:
-                img = Image.open(value).convert("RGB")
+            # Try to load from extracted directory first if it exists
+            if extract_dir and extract_dir.exists():
+                # Try to find the image in extracted directory by searching for the filename
+                path_obj = Path(value)
+                possible_paths = list(extract_dir.rglob(path_obj.name))
+                if not possible_paths:
+                    # Try with the full relative path structure
+                    possible_paths = list(extract_dir.rglob(str(path_obj)))
+                if possible_paths:
+                    img = Image.open(possible_paths[0]).convert("RGB")
+
+            # If not found in extracted dir, try original methods
+            if img is None:
+                # Check if it's a path inside a zip file
+                if value.startswith("zip://") or "::" in value:
+                    img = extract_image_from_zip(value, extract_dir)
+                else:
+                    img = Image.open(value).convert("RGB")
 
     if img is None:
         # Skip if we couldn't decode
@@ -154,10 +204,54 @@ def save_image_value(value, out_path: Path):
     return True
 
 
+def find_and_extract_zips(dataset_cache_dir: Path, extract_dir: Path):
+    """
+    Find all .zip files in the dataset cache directory and extract them.
+    Returns True if any zips were found and extracted.
+    """
+    if not dataset_cache_dir.exists():
+        return False
+
+    zip_files = list(dataset_cache_dir.rglob("*.zip"))
+    if not zip_files:
+        return False
+
+    extract_dir.mkdir(parents=True, exist_ok=True)
+    marker_file = extract_dir / ".extracted"
+
+    if marker_file.exists():
+        return True  # Already extracted
+
+    for zip_path in zip_files:
+        print(f"  Found zip file: {zip_path.name}")
+        print(f"  Extracting to {extract_dir}...")
+        try:
+            with zipfile.ZipFile(zip_path, 'r') as zf:
+                zf.extractall(extract_dir)
+        except Exception as e:
+            print(f"  ! Failed to extract {zip_path}: {e}")
+
+    marker_file.touch()
+    return True
+
+
 def export_split(repo_id: str, split_name: str, ds, out_dir: Path):
     img_col = detect_image_column(ds)
     split_dir = out_dir / split_name
     split_dir.mkdir(parents=True, exist_ok=True)
+
+    # Create an extract directory for zip files
+    extract_dir = out_dir / "_extracted"
+
+    # Try to find and extract zip files from the dataset cache
+    try:
+        # Get the cache directory from the dataset info
+        if hasattr(ds, 'cache_files') and ds.cache_files:
+            cache_file = Path(ds.cache_files[0]['filename'])
+            dataset_cache_dir = cache_file.parent
+            find_and_extract_zips(dataset_cache_dir, extract_dir)
+    except Exception as e:
+        print(f"  Note: Could not auto-extract zips: {e}")
 
     print(f"[{repo_id}] Exporting split '{split_name}' using column '{img_col}'")
 
@@ -168,7 +262,7 @@ def export_split(repo_id: str, split_name: str, ds, out_dir: Path):
         if out_path.exists():
             continue
         try:
-            ok = save_image_value(value, out_path)
+            ok = save_image_value(value, out_path, extract_dir)
         except Exception as e:
             print(f"  ! Error on index {idx}: {e}")
             ok = False
