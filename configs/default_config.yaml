@@ -75,28 +75,6 @@ validation:
   enable_math_check: true      # Enable arithmetic validation
   math_tolerance: 1e-6        # Tolerance for math answer checking
 
-# Benchmarking Settings
-benchmarking:
-  model: "Salesforce/blip2-flan-t5-xl-coco"  # VLM model for fine-tuning
-  train_batch_size: 4         # Training batch size
-  eval_batch_size: 8          # Evaluation batch size
-  num_epochs: 5               # Number of training epochs
-  learning_rate: 1e-5         # Learning rate
-  warmup_steps: 100           # Warmup steps
-  fp16: true                  # Enable mixed precision training
-  gradient_accumulation: 2    # Gradient accumulation steps
-  
-  # Benchmark datasets
-  benchmarks:
-    - textvqa
-    - docvqa
-    - chartqa
-  
-  # Evaluation settings
-  max_answer_length: 20       # Max tokens for answer generation
-  beam_search: true           # Enable beam search
-  num_beams: 5               # Number of beams for search
-
 # Hardware Settings
 device:
   cuda_device: 0              # CUDA device index

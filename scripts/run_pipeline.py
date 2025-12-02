@@ -32,9 +32,6 @@ Examples:
   # Custom configuration and output directory
   python run_pipeline.py --images-dir ./data/images --config ./my_config.yaml --output-dir ./results
 
-  # Skip benchmarking stage
-  python run_pipeline.py --images-dir ./data/images --skip-benchmarking
-
   # Custom bin ratios (Text:Object:Commonsense)
   python run_pipeline.py --images-dir ./data/images --bins-ratio 0.3 0.3 0.4
         """
@@ -84,13 +81,7 @@ Examples:
         default=[0.4, 0.4, 0.2],
         help='Bin ratios for Text:Object:Commonsense (default: 0.4 0.4 0.2)'
     )
-    
-    parser.add_argument(
-        '--skip-benchmarking',
-        action='store_true',
-        help='Skip the benchmarking stage'
-    )
-    
+
     parser.add_argument(
         '--device',
         type=str,
@@ -147,7 +138,6 @@ Examples:
     logger.info(f"Configuration: {args.config}")
     logger.info(f"Bins ratio: {args.bins_ratio}")
     logger.info(f"Device: {args.device}")
-    logger.info(f"Skip benchmarking: {args.skip_benchmarking}")
     
     if args.dry_run:
         logger.info("DRY RUN MODE - No actual processing will occur")
@@ -168,8 +158,7 @@ Examples:
         logger.info("Starting pipeline execution...")
         results = pipeline.run(
             num_images=args.num_images,
-            bins_ratio=tuple(args.bins_ratio),
-            skip_benchmarking=args.skip_benchmarking
+            bins_ratio=tuple(args.bins_ratio)
         )
         
         # Print results summary
@@ -185,12 +174,7 @@ Examples:
         
         logger.info(f"Generated Q/A pairs: {results.get('generated_qa', 0)}")
         logger.info(f"Validated Q/A pairs: {results.get('validated_qa', 0)}")
-        
-        if 'benchmarks' in results:
-            logger.info("Benchmark scores:")
-            for benchmark, score in results['benchmarks'].items():
-                logger.info(f"  {benchmark}: {score:.2f}%")
-        
+
         # Save detailed results
         results_file = Path(args.output_dir) / "pipeline_results.json"
         logger.info(f"Detailed results saved to: {results_file}")

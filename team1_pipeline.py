@@ -14,7 +14,6 @@ from tqdm import tqdm
 from src.filtering import ImageFilter, ImageBinner
 from src.synthesis import QAGenerator, FeatureExtractor
 from src.validation import DataValidator
-from src.benchmarking import ModelTrainer, BenchmarkEvaluator
 from src.utils import setup_logging
 
 # Configure logging
@@ -24,12 +23,11 @@ logger = logging.getLogger(__name__)
 class DataSynthesisPipeline:
     """
     Complete pipeline for Team-1 Data Synthesis methodology.
-    
+
     This pipeline handles:
     1. Image filtering and binning
     2. Q/A/Reasoning synthesis
     3. Validation and quality control
-    4. Model fine-tuning and benchmarking
     """
     
     def __init__(
@@ -58,7 +56,10 @@ class DataSynthesisPipeline:
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
         self.device = device
-        
+
+        # Check if intermediate saving is enabled
+        self.save_intermediate = self.config.get('output', {}).get('save_intermediate', True)
+
         # Initialize components
         self.image_filter = ImageFilter(self.config['filtering'])
         self.image_binner = ImageBinner(self.config['binning'])
@@ -81,17 +82,15 @@ class DataSynthesisPipeline:
     def run(
         self,
         num_images: int = 1000,
-        bins_ratio: Tuple[float, float, float] = (0.4, 0.4, 0.2),
-        skip_benchmarking: bool = False
+        bins_ratio: Tuple[float, float, float] = (0.4, 0.4, 0.2)
     ) -> Dict[str, Any]:
         """
         Run the complete pipeline end-to-end.
-        
+
         Args:
             num_images: Target number of images to process
             bins_ratio: Ratio for Bin A (Text), B (Object), C (Commonsense)
-            skip_benchmarking: Whether to skip the benchmarking stage
-        
+
         Returns:
             Dictionary containing pipeline results and metrics
         """
@@ -102,7 +101,8 @@ class DataSynthesisPipeline:
         logger.info("Stage 1: Filtering images...")
         filtered_images = self.filter_stage(num_images)
         results['filtered_count'] = len(filtered_images)
-        
+        self.save_stage1_results(filtered_images)
+
         # Stage 2: Binning
         logger.info("Stage 2: Binning images...")
         binned_images = self.bin_stage(filtered_images, bins_ratio)
@@ -111,29 +111,27 @@ class DataSynthesisPipeline:
             'B': len(binned_images['B']),
             'C': len(binned_images['C'])
         }
-        
+        self.save_stage2_results(binned_images)
+
         # Stage 3: Synthesis
         logger.info("Stage 3: Synthesizing Q/A pairs...")
         qa_dataset = self.synthesis_stage(binned_images)
         results['generated_qa'] = len(qa_dataset)
-        
+        self.save_stage3_results(qa_dataset)
+
         # Stage 4: Validation
         logger.info("Stage 4: Validating dataset...")
+        original_qa_count = len(qa_dataset)
         validated_dataset = self.validation_stage(qa_dataset)
         results['validated_qa'] = len(validated_dataset)
+        self.save_stage4_results(validated_dataset, original_qa_count)
         
         # Save validated dataset
         self.save_dataset(validated_dataset)
-        
-        # Stage 5: Benchmarking (optional)
-        if not skip_benchmarking:
-            logger.info("Stage 5: Benchmarking...")
-            benchmark_results = self.benchmark_stage(validated_dataset)
-            results['benchmarks'] = benchmark_results
-        
+
         logger.info("Pipeline completed successfully!")
         self.save_results(results)
-        
+
         return results
     
     def filter_stage(self, num_images: int) -> List[Dict]:
@@ -287,38 +285,147 @@ class DataSynthesisPipeline:
                    f"({len(qa_dataset) - len(validated)} removed)")
         
         return validated
-    
-    def benchmark_stage(self, dataset: List[Dict]) -> Dict[str, float]:
-        """
-        Stage 5: Fine-tune model and evaluate on benchmarks.
-        
-        Benchmarks:
-        - TextVQA
-        - DocVQA
-        - ChartQA
-        """
-        # Initialize trainer
-        trainer = ModelTrainer(
-            model_name=self.config['benchmarking']['model'],
-            device=self.device
-        )
-        
-        # Fine-tune model
-        logger.info("Fine-tuning model...")
-        model = trainer.train(dataset)
-        
-        # Evaluate on benchmarks
-        evaluator = BenchmarkEvaluator(model, self.device)
-        
-        results = {}
-        for benchmark in ['textvqa', 'docvqa', 'chartqa']:
-            logger.info(f"Evaluating on {benchmark}...")
-            score = evaluator.evaluate(benchmark)
-            results[benchmark] = score
-            logger.info(f"{benchmark} score: {score:.2f}%")
-        
-        return results
-    
+
+    def save_stage1_results(self, filtered_images: List[Dict]):
+        """Save Stage 1 (Filtering) results to disk."""
+        if not self.save_intermediate:
+            return
+
+        stage1_dir = self.output_dir / "intermediate" / "stage1_filtering"
+        stage1_dir.mkdir(parents=True, exist_ok=True)
+
+        # Save filtered image list
+        output_path = stage1_dir / "filtered_images.jsonl"
+        with open(output_path, 'w') as f:
+            for img in filtered_images:
+                f.write(json.dumps(img) + '\n')
+
+        # Save summary statistics
+        summary = {
+            'stage': 'Stage 1 - Filtering',
+            'total_filtered': len(filtered_images),
+            'images': [img['path'] for img in filtered_images]
+        }
+        summary_path = stage1_dir / "summary.json"
+        with open(summary_path, 'w') as f:
+            json.dump(summary, f, indent=2)
+
+        logger.info(f"Stage 1 results saved to {stage1_dir}")
+
+    def save_stage2_results(self, binned_images: Dict[str, List[Dict]]):
+        """Save Stage 2 (Binning) results to disk."""
+        if not self.save_intermediate:
+            return
+
+        stage2_dir = self.output_dir / "intermediate" / "stage2_binning"
+        stage2_dir.mkdir(parents=True, exist_ok=True)
+
+        # Save each bin separately
+        for bin_type, images in binned_images.items():
+            bin_path = stage2_dir / f"bin_{bin_type}.jsonl"
+            with open(bin_path, 'w') as f:
+                for img in images:
+                    f.write(json.dumps(img) + '\n')
+
+        # Save all binned images together
+        all_binned_path = stage2_dir / "all_binned_images.jsonl"
+        with open(all_binned_path, 'w') as f:
+            for bin_type, images in binned_images.items():
+                for img in images:
+                    img_with_bin = img.copy()
+                    img_with_bin['bin'] = bin_type
+                    f.write(json.dumps(img_with_bin) + '\n')
+
+        # Save summary statistics
+        summary = {
+            'stage': 'Stage 2 - Binning',
+            'bin_distribution': {
+                'A': len(binned_images['A']),
+                'B': len(binned_images['B']),
+                'C': len(binned_images['C'])
+            },
+            'total_binned': sum(len(images) for images in binned_images.values())
+        }
+        summary_path = stage2_dir / "summary.json"
+        with open(summary_path, 'w') as f:
+            json.dump(summary, f, indent=2)
+
+        logger.info(f"Stage 2 results saved to {stage2_dir}")
+
+    def save_stage3_results(self, qa_dataset: List[Dict]):
+        """Save Stage 3 (Synthesis) results to disk."""
+        if not self.save_intermediate:
+            return
+
+        stage3_dir = self.output_dir / "intermediate" / "stage3_synthesis"
+        stage3_dir.mkdir(parents=True, exist_ok=True)
+
+        # Save all generated Q/A pairs
+        output_path = stage3_dir / "generated_qa_pairs.jsonl"
+        with open(output_path, 'w') as f:
+            for qa in qa_dataset:
+                f.write(json.dumps(qa) + '\n')
+
+        # Save by bin type
+        bins = {'A': [], 'B': [], 'C': []}
+        for qa in qa_dataset:
+            bin_type = qa.get('bin', 'C')
+            bins[bin_type].append(qa)
+
+        for bin_type, qa_list in bins.items():
+            if qa_list:
+                bin_path = stage3_dir / f"bin_{bin_type}_qa_pairs.jsonl"
+                with open(bin_path, 'w') as f:
+                    for qa in qa_list:
+                        f.write(json.dumps(qa) + '\n')
+
+        # Save summary statistics
+        summary = {
+            'stage': 'Stage 3 - Q/A Synthesis',
+            'total_generated': len(qa_dataset),
+            'by_bin': {
+                'A': len(bins['A']),
+                'B': len(bins['B']),
+                'C': len(bins['C'])
+            }
+        }
+        summary_path = stage3_dir / "summary.json"
+        with open(summary_path, 'w') as f:
+            json.dump(summary, f, indent=2)
+
+        logger.info(f"Stage 3 results saved to {stage3_dir}")
+
+    def save_stage4_results(self, validated_dataset: List[Dict], original_count: int):
+        """Save Stage 4 (Validation) results to disk."""
+        if not self.save_intermediate:
+            return
+
+        stage4_dir = self.output_dir / "intermediate" / "stage4_validation"
+        stage4_dir.mkdir(parents=True, exist_ok=True)
+
+        # Save validated Q/A pairs
+        output_path = stage4_dir / "validated_qa_pairs.jsonl"
+        with open(output_path, 'w') as f:
+            for qa in validated_dataset:
+                f.write(json.dumps(qa) + '\n')
+
+        # Save summary statistics
+        removed = original_count - len(validated_dataset)
+        removal_rate = (removed / original_count * 100) if original_count > 0 else 0
+
+        summary = {
+            'stage': 'Stage 4 - Validation',
+            'original_count': original_count,
+            'validated_count': len(validated_dataset),
+            'removed_count': removed,
+            'removal_rate_percent': round(removal_rate, 2)
+        }
+        summary_path = stage4_dir / "summary.json"
+        with open(summary_path, 'w') as f:
+            json.dump(summary, f, indent=2)
+
+        logger.info(f"Stage 4 results saved to {stage4_dir}")
+
     def save_dataset(self, dataset: List[Dict]):
         """Save the validated dataset to file."""
         output_path = self.output_dir / "synthetic_qa_dataset.jsonl"
@@ -338,42 +445,6 @@ class DataSynthesisPipeline:
         
         logger.info(f"Results saved to {output_path}")
     
-    def benchmark_yolo_models(self, images: List[Dict]) -> None:
-        """
-        Benchmark YOLO models on a set of images.
-
-        This method is useful for evaluating different YOLO versions
-        before deciding which to use in production.
-
-        Args:
-            images: List of image dictionaries with 'path' key
-        """
-        if not self.config['binning'].get('enable_multi_yolo', False):
-            logger.warning(
-                "Multi-YOLO benchmarking not enabled. "
-                "Set enable_multi_yolo: true in config to use this feature."
-            )
-            return
-
-        image_paths = [img['path'] for img in images]
-        logger.info(f"Benchmarking YOLO models on {len(image_paths)} images...")
-
-        results_df = self.image_binner.benchmark_yolo_models(image_paths)
-
-        # Save results
-        output_path = self.output_dir / "yolo_benchmark_results.csv"
-        results_df.to_csv(output_path, index=False)
-        logger.info(f"YOLO benchmark results saved to {output_path}")
-
-        # Print summary
-        print("\nYOLO Benchmark Summary:")
-        print("=" * 60)
-        for model_name in results_df['model_name'].unique():
-            model_results = results_df[results_df['model_name'] == model_name]
-            avg_time = model_results['avg_inference_time'].iloc[0]
-            pass_rate = model_results['passes_filter'].sum() / len(model_results) * 100
-            print(f"{model_name:12s} - Avg time: {avg_time:.3f}s, Pass rate: {pass_rate:.1f}%")
-
     def _load_image_paths(self) -> List[str]:
         """
         Load all image paths from train subdirectories within the images directory.
@@ -429,24 +500,18 @@ def main():
         default='configs/default_config.yaml',
         help='Configuration file path'
     )
-    parser.add_argument(
-        '--skip-benchmarking',
-        action='store_true',
-        help='Skip benchmarking stage'
-    )
-    
+
     args = parser.parse_args()
-    
+
     # Run pipeline
     pipeline = DataSynthesisPipeline(
         config_path=args.config,
         images_dir=args.images_dir,
         output_dir=args.output_dir
     )
-    
+
     results = pipeline.run(
-        num_images=args.num_images,
-        skip_benchmarking=args.skip_benchmarking
+        num_images=args.num_images
     )
     
     print("\nPipeline Results:")
