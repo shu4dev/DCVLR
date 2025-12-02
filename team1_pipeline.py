@@ -63,11 +63,13 @@ class DataSynthesisPipeline:
         self.image_filter = ImageFilter(self.config['filtering'])
         self.image_binner = ImageBinner(self.config['binning'])
         self.feature_extractor = FeatureExtractor(device=device)
+        """
         self.qa_generator = QAGenerator(
             model_name=llm_model,
             config=self.config['synthesis'],
             device=device
         )
+        """
         self.validator = DataValidator(self.config['validation'])
         
         # Setup logging
