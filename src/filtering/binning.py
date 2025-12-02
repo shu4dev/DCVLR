@@ -537,12 +537,12 @@ class ImageBinner:
                     self.blip_device,
                     torch.float16 if "cuda" in self.blip_device else torch.float32
                 )
-                generated_ids = self.blip_model.generate(**inputs)
+                generated_ids = self.blip_model.generate(**inputs, pad_token_id=self.blip_processor.tokenizer.pad_token_id)
                 caption = self.blip_processor.batch_decode(generated_ids, skip_special_tokens=True)[0].strip()
             else:
                 # BLIP-base processing
                 inputs = self.blip_processor(image, return_tensors="pt").to(self.blip_device)
-                out = self.blip_model.generate(**inputs, max_new_tokens=50)
+                out = self.blip_model.generate(**inputs, max_new_tokens=50, pad_token_id=self.blip_processor.tokenizer.pad_token_id)
                 caption = self.blip_processor.decode(out[0], skip_special_tokens=True)
 
             return caption

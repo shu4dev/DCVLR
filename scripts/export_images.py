@@ -18,11 +18,16 @@ from tqdm.auto import tqdm
 
 
 REPO_IDS = [
-    "Yuting6/geoqa_plus",
-    "hiyouga/geometry3k",
+    "HuggingFaceM4/ChartQA",
+    "lmms-lab/multimodal-open-r1-8k-verified"
+    "vidore/infovqa_train",
+    "derek-thomas/ScienceQA",
+    "Luckyjhg/Geo170K",
+    "Zhiqiang007/MathV360K",
+    "oumi-ai/walton-multimodal-cold-start-r1-format"
 ]
 
-ROOT_OUT = Path("data")
+ROOT_OUT = Path("./data")
 
 
 def sanitize_repo_id(repo_id: str) -> str:

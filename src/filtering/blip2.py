@@ -37,7 +37,7 @@ def generate_captions(images, isurl):
             inputs = processor(images=img, return_tensors="pt").to(device, torch.float16)
 
             # Generate a caption using the model
-            generated_ids = model.generate(**inputs)
+            generated_ids = model.generate(**inputs, pad_token_id=processor.tokenizer.pad_token_id)
 
             # Decode generated output IDs to a readable string caption
             caption = processor.batch_decode(generated_ids, skip_special_tokens=True)[0].strip()     
