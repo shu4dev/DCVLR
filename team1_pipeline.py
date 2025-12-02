@@ -70,7 +70,9 @@ class DataSynthesisPipeline:
             device=device
         )
         """
+        """
         self.validator = DataValidator(self.config['validation'])
+        """
         
         # Setup logging
         setup_logging(self.output_dir / "pipeline.log")
@@ -407,7 +409,7 @@ def main():
     parser.add_argument(
         '--num-images',
         type=int,
-        default=1000,
+        default=10,
         help='Number of images to process'
     )
     parser.add_argument(
