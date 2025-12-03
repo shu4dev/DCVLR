@@ -2,13 +2,16 @@
 
 Implementation of the Team-1 reasoning-focused data synthesis workflow (see `Implmentation.pdf`). The pipeline curates raw images, synthesizes question/answer/reasoning triples with a large language model, and validates the generations to produce high-quality vision-language datasets.
 
-> **🚀 NEW Feature:** Automatic crash recovery! The pipeline now automatically resumes from the last completed stage if interrupted. [Learn more ↓](#-automatic-resume-behavior)
+> **🚀 NEW Features:**
+> - Automatic crash recovery! The pipeline now automatically resumes from the last completed stage if interrupted. [Learn more ↓](#-automatic-resume-behavior)
+> - Detailed binning display! See how each image performs against all 3 bin criteria plus custom user criteria. [Learn more →](docs/DETAILED_BINNING_GUIDE.md)
 
 ## Highlights
 - **End-to-end pipeline** – filtering, binning, synthesis, and validation live in a single orchestrator (`team1_pipeline.py`).
 - **Modular stages** – swap filtering, LLM, or validation components by editing `configs/default_config.yaml`.
 - **Flexible captioning** – Choose between BLIP, BLIP-2, or Moondream API for image captions.
 - **Feature extraction modes** – Full features (OCR+objects+captions) or caption-only for 70% faster processing.
+- **Detailed binning analysis** – Display how each image scores against Text/Object/Commonsense criteria with custom filters.
 - **Intermediate saves** – Automatically saves results after each stage for debugging and recovery.
 - **Automatic resume** – Detects interrupted runs and resumes from the last completed stage automatically.
 - **Scriptable + importable** – run via `scripts/run_pipeline.py` or embed with the `DataSynthesisPipeline` class.

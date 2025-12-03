@@ -963,48 +963,155 @@ class ImageBinner:
             logger.warning(f"Error calculating CLIP similarity for {image_path}: {e}")
             return 0.0
     
-    def categorize_image(self, image_path: str) -> str:
+    def categorize_image(self, image_path: str, return_details: bool = False) -> str | Dict:
         """
         Categorize a single image into bin A, B, or C.
-        
+
         Args:
             image_path: Path to the image file
-            
+            return_details: If True, return detailed results dictionary instead of just bin category
+
         Returns:
-            Bin category ('A', 'B', or 'C')
+            If return_details=False: Bin category ('A', 'B', or 'C')
+            If return_details=True: Dictionary with detailed binning information
         """
         # Check for text content (Bin A)
         num_text_boxes, text_area_ratio = self.detect_text(image_path)
-        
-        if (num_text_boxes > self.text_boxes_threshold or 
-            text_area_ratio > self.text_area_threshold):
-            return 'A'
-        
+
         # Check for object content (Bin B)
         num_objects, unique_classes, dispersion = self.detect_objects(image_path)
-        
-        if (unique_classes > self.unique_objects_threshold or 
-            num_objects > self.object_count_threshold):
-            return 'B'
-        
+
         # Check caption quality for Bin C
         caption = self.generate_caption(image_path)
+        similarity = 0.0
         if caption:
             similarity = self.calculate_clip_similarity(image_path, caption)
-            
+
             if similarity < self.clip_threshold:
                 # Poor caption match, might not be suitable
                 logger.debug(f"Image {image_path} has low CLIP similarity: {similarity}")
-        
-        # Default to Bin C (commonsense/attribute)
-        return 'C'
+
+        # Determine bin category
+        bin_category = None
+        if (num_text_boxes > self.text_boxes_threshold or
+            text_area_ratio > self.text_area_threshold):
+            bin_category = 'A'
+        elif (unique_classes > self.unique_objects_threshold or
+            num_objects > self.object_count_threshold):
+            bin_category = 'B'
+        else:
+            # Default to Bin C (commonsense/attribute)
+            bin_category = 'C'
+
+        if return_details:
+            # Return detailed results
+            details = {
+                'image_path': image_path,
+                'filename': Path(image_path).name,
+                'assigned_bin': bin_category,
+                'bin_a_criteria': {
+                    'num_text_boxes': num_text_boxes,
+                    'text_boxes_threshold': self.text_boxes_threshold,
+                    'text_boxes_passes': num_text_boxes > self.text_boxes_threshold,
+                    'text_area_ratio': text_area_ratio,
+                    'text_area_threshold': self.text_area_threshold,
+                    'text_area_passes': text_area_ratio > self.text_area_threshold,
+                    'overall_passes': (num_text_boxes > self.text_boxes_threshold or
+                                       text_area_ratio > self.text_area_threshold)
+                },
+                'bin_b_criteria': {
+                    'num_objects': num_objects,
+                    'object_count_threshold': self.object_count_threshold,
+                    'object_count_passes': num_objects > self.object_count_threshold,
+                    'unique_classes': unique_classes,
+                    'unique_objects_threshold': self.unique_objects_threshold,
+                    'unique_classes_passes': unique_classes > self.unique_objects_threshold,
+                    'spatial_dispersion': dispersion,
+                    'spatial_dispersion_threshold': self.spatial_dispersion_threshold,
+                    'spatial_dispersion_passes': dispersion > self.spatial_dispersion_threshold,
+                    'overall_passes': (unique_classes > self.unique_objects_threshold or
+                                       num_objects > self.object_count_threshold)
+                },
+                'bin_c_criteria': {
+                    'caption': caption,
+                    'clip_similarity': similarity,
+                    'clip_threshold': self.clip_threshold,
+                    'similarity_passes': similarity >= self.clip_threshold,
+                    'overall_passes': bin_category == 'C'
+                }
+            }
+            return details
+
+        return bin_category
     
-    def bin_images(self, images: List[Dict]) -> Dict[str, List[Dict]]:
+    def display_image_results(self, details: Dict, user_criteria: Optional[Dict] = None):
+        """
+        Display detailed binning results for a single image.
+
+        Args:
+            details: Dictionary with detailed binning information from categorize_image
+            user_criteria: Optional dictionary with user-defined criteria to check
+        """
+        print("\n" + "="*80)
+        print(f"IMAGE: {details['filename']}")
+        print(f"PATH: {details['image_path']}")
+        print(f"ASSIGNED BIN: {details['assigned_bin']}")
+        print("="*80)
+
+        # Bin A criteria
+        print("\n[BIN A - Text/Arithmetic Criteria]")
+        bin_a = details['bin_a_criteria']
+        print(f"  Text Boxes: {bin_a['num_text_boxes']} (threshold: >{bin_a['text_boxes_threshold']}) "
+              f"{'✓ PASS' if bin_a['text_boxes_passes'] else '✗ FAIL'}")
+        print(f"  Text Area Ratio: {bin_a['text_area_ratio']:.4f} (threshold: >{bin_a['text_area_threshold']}) "
+              f"{'✓ PASS' if bin_a['text_area_passes'] else '✗ FAIL'}")
+        print(f"  → Overall Bin A: {'✓ PASSES' if bin_a['overall_passes'] else '✗ FAILS'}")
+
+        # Bin B criteria
+        print("\n[BIN B - Object/Spatial Criteria]")
+        bin_b = details['bin_b_criteria']
+        print(f"  Object Count: {bin_b['num_objects']} (threshold: >{bin_b['object_count_threshold']}) "
+              f"{'✓ PASS' if bin_b['object_count_passes'] else '✗ FAIL'}")
+        print(f"  Unique Classes: {bin_b['unique_classes']} (threshold: >{bin_b['unique_objects_threshold']}) "
+              f"{'✓ PASS' if bin_b['unique_classes_passes'] else '✗ FAIL'}")
+        print(f"  Spatial Dispersion: {bin_b['spatial_dispersion']:.4f} (threshold: >{bin_b['spatial_dispersion_threshold']}) "
+              f"{'✓ PASS' if bin_b['spatial_dispersion_passes'] else '✗ FAIL'}")
+        print(f"  → Overall Bin B: {'✓ PASSES' if bin_b['overall_passes'] else '✗ FAILS'}")
+
+        # Bin C criteria
+        print("\n[BIN C - Commonsense/Attribute Criteria]")
+        bin_c = details['bin_c_criteria']
+        print(f"  Caption: '{bin_c['caption']}'")
+        print(f"  CLIP Similarity: {bin_c['clip_similarity']:.4f} (threshold: >={bin_c['clip_threshold']}) "
+              f"{'✓ PASS' if bin_c['similarity_passes'] else '✗ FAIL'}")
+        print(f"  → Overall Bin C: {'✓ PASSES' if bin_c['overall_passes'] else '✗ FAILS'}")
+
+        # User-defined criteria
+        if user_criteria:
+            print("\n[USER-DEFINED CRITERIA]")
+            for criterion_name, criterion_func in user_criteria.items():
+                try:
+                    result = criterion_func(details)
+                    if isinstance(result, bool):
+                        print(f"  {criterion_name}: {'✓ PASS' if result else '✗ FAIL'}")
+                    elif isinstance(result, dict) and 'passes' in result and 'message' in result:
+                        print(f"  {criterion_name}: {'✓ PASS' if result['passes'] else '✗ FAIL'}")
+                        print(f"    → {result['message']}")
+                    else:
+                        print(f"  {criterion_name}: {result}")
+                except Exception as e:
+                    print(f"  {criterion_name}: ERROR - {e}")
+
+        print("="*80 + "\n")
+
+    def bin_images(self, images: List[Dict], display_details: bool = False, user_criteria: Optional[Dict] = None) -> Dict[str, List[Dict]]:
         """
         Categorize multiple images into bins.
 
         Args:
             images: List of image dictionaries with 'path' key
+            display_details: If True, display detailed results for each image
+            user_criteria: Optional dictionary with user-defined criteria functions
 
         Returns:
             Dictionary with bin categories as keys and image lists as values
@@ -1012,12 +1119,50 @@ class ImageBinner:
         # Log starting amount
         total_start = len(images)
         logger.info(f"Binning started with {total_start} images")
+        logger.info(f"")
+        logger.info(f"Thresholds configured:")
+        logger.info(f"  Bin A (Text): text_boxes > {self.text_boxes_threshold}, text_area > {self.text_area_threshold}")
+        logger.info(f"  Bin B (Object): objects > {self.object_count_threshold}, unique_classes > {self.unique_objects_threshold}, dispersion > {self.spatial_dispersion_threshold}")
+        logger.info(f"  Bin C (Commonsense): CLIP similarity >= {self.clip_threshold}")
+        logger.info(f"")
 
         bins = {'A': [], 'B': [], 'C': []}
 
-        for img_data in images:
+        for idx, img_data in enumerate(images, 1):
             try:
-                bin_category = self.categorize_image(img_data['path'])
+                # Always get detailed results for logging
+                details = self.categorize_image(img_data['path'], return_details=True)
+                bin_category = details['assigned_bin']
+
+                # Log detailed information for each image
+                filename = Path(img_data['path']).name
+                logger.info(f"Image {idx}/{total_start}: {filename}")
+                logger.info(f"  → Assigned to Bin {bin_category}")
+
+                # Log Bin A criteria
+                bin_a = details['bin_a_criteria']
+                logger.info(f"  Bin A: text_boxes={bin_a['num_text_boxes']} (threshold >{bin_a['text_boxes_threshold']}), "
+                           f"text_area={bin_a['text_area_ratio']:.4f} (threshold >{bin_a['text_area_threshold']}) "
+                           f"→ {'PASS' if bin_a['overall_passes'] else 'FAIL'}")
+
+                # Log Bin B criteria
+                bin_b = details['bin_b_criteria']
+                logger.info(f"  Bin B: objects={bin_b['num_objects']} (threshold >{bin_b['object_count_threshold']}), "
+                           f"unique_classes={bin_b['unique_classes']} (threshold >{bin_b['unique_objects_threshold']}), "
+                           f"dispersion={bin_b['spatial_dispersion']:.4f} (threshold >{bin_b['spatial_dispersion_threshold']}) "
+                           f"→ {'PASS' if bin_b['overall_passes'] else 'FAIL'}")
+
+                # Log Bin C criteria
+                bin_c = details['bin_c_criteria']
+                logger.info(f"  Bin C: clip_similarity={bin_c['clip_similarity']:.4f} (threshold >={bin_c['clip_threshold']}) "
+                           f"→ {'PASS' if bin_c['similarity_passes'] else 'FAIL'}")
+                logger.info(f"  Caption: '{bin_c['caption'][:100]}{'...' if len(bin_c['caption']) > 100 else ''}'")
+                logger.info(f"")
+
+                if display_details:
+                    # Display results to console
+                    self.display_image_results(details, user_criteria)
+
                 bins[bin_category].append(img_data)
 
             except Exception as e:

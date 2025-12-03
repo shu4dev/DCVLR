@@ -6,6 +6,7 @@ Main pipeline orchestrator for the complete workflow
 import os
 import json
 import logging
+import random
 from typing import Dict, List, Tuple, Optional, Any
 from pathlib import Path
 import yaml
@@ -266,8 +267,15 @@ class DataSynthesisPipeline:
             images_to_check = image_paths
             logger.info("Processing all images (num_images=-1)")
         else:
-            # Check extra images to account for filtering losses
-            images_to_check = image_paths[:num_images * 2]
+            # Randomly sample images when num_images is specified
+            if len(image_paths) > num_images * 2:
+                # Sample more than needed to account for filtering losses
+                sample_size = min(num_images * 2, len(image_paths))
+                images_to_check = random.sample(image_paths, sample_size)
+                logger.info(f"Randomly sampled {sample_size} images from {len(image_paths)} total images")
+            else:
+                images_to_check = image_paths
+                logger.info(f"Using all {len(image_paths)} images (fewer than requested sample size)")
 
         filtered_images = []
 
