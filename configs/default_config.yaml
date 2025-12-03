@@ -17,12 +17,38 @@ binning:
   clip_similarity_threshold: 0.25  # Min CLIP similarity for Bin C validation
   spatial_dispersion_threshold: 0.3  # Spatial dispersion threshold for complexity filtering
 
-  # OCR Backend Selection
+  # PIPELINE MODE SELECTION
+  # ======================
+  # Choose between two distinct pipelines:
+  #
+  # Option 1: "hybrid" - PaddleOCR + Separate Models
+  #   - OCR: PaddleOCR (lightweight, ~200MB)
+  #   - Object Detection: YOLO or SAM
+  #   - Captioning: BLIP, BLIP-2, or Moondream API
+  #   - Requirements: transformers >= 4.47.0 (for BLIP models)
+  #   - Pro: More flexible, lower VRAM per model
+  #   - Con: Multiple model loading, more complex setup
+  #
+  # Option 2: "deepseek_unified" - DeepSeek-OCR for All Tasks
+  #   - OCR: DeepSeek-OCR (heavy, ~10GB)
+  #   - Object Detection: DeepSeek-OCR grounding mode
+  #   - Captioning: DeepSeek-OCR caption generation
+  #   - Requirements: transformers == 4.46.3 (CRITICAL - exact version required!)
+  #   - Pro: Single model for all tasks, unified processing
+  #   - Con: High VRAM requirement (~10GB), slower processing
+  #
+  # IMPORTANT: Pipeline modes require DIFFERENT transformers versions!
+  #   - hybrid mode: pip install transformers>=4.47.0
+  #   - deepseek_unified mode: pip install transformers==4.46.3
+  #
+  pipeline_mode: 'hybrid'       # Options: 'hybrid' or 'deepseek_unified'
+
+  # OCR Backend Selection (only used in 'hybrid' mode)
   use_paddle_ocr: false          # true = PaddleOCR (lightweight, ~200MB), false = DeepSeek-OCR (heavy, ~10GB)
                                 # If use_paddle_ocr: false and DeepSeek fails (OOM), automatically falls back to PaddleOCR
                                 # Recommended: Set to true for systems with limited VRAM (e.g., single RTX 2080 Ti)
 
-  # DeepSeek-OCR model settings (only used if use_paddle_ocr: false)
+  # DeepSeek-OCR model settings (used in 'deepseek_unified' mode or when use_paddle_ocr: false in 'hybrid' mode)
   deepseek_model_size: 'tiny'   # Model size: 'tiny', 'small', 'base', 'large' (tiny uses least memory)
 
   # Multi-GPU settings
@@ -30,6 +56,10 @@ binning:
                                 # With 1 GPU: all models on cuda:0
                                 # With 2 GPUs: OCR on cuda:0, other models on cuda:1
                                 # With 3+ GPUs: OCR on cuda:0, YOLO on cuda:1, CLIP/BLIP on cuda:2
+
+  # ======================
+  # HYBRID MODE SETTINGS (only used when pipeline_mode: 'hybrid')
+  # ======================
 
   # Enhanced model options (merged from blip2.py and yolov11-filter.py)
   use_blip2: false              # Use BLIP-2 for higher quality captions (requires more GPU memory)
@@ -50,7 +80,7 @@ binning:
                                 # sam = Slower, finds all objects/regions without classification
 
   # YOLO-specific settings (only used if object_detector: 'yolo')
-  yolo_model: 'yolov8n'         # Options: 'yolov8n', 'yolov8s', 'yolov9s', 'yolov10s', 'yolov11s'
+  yolo_model: 'yolov11s'         # Options: 'yolov8n', 'yolov8s', 'yolov9s', 'yolov10s', 'yolov11s'
                                 # n = nano (fastest, least accurate)
                                 # s = small (balanced)
 
@@ -82,7 +112,7 @@ synthesis:
   # Feature extraction settings (only used if use_full_features: true)
   ocr_lang: "en"              # OCR language
   use_angle_cls: true         # Enable angle classification in OCR
-  yolo_model: "yolov8n.pt"    # YOLO model for object detection
+  yolo_model: "yolov11s.pt"    # YOLO model for object detection
   blip_model: "Salesforce/blip-image-captioning-base"  # BLIP model for captioning
   clip_model: "ViT-B-32"      # CLIP model for similarity
 

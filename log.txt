@@ -1,0 +1,553 @@
+2025-12-03 03:18:18,180 - root - INFO - Logging to file: output/pipeline.log
+2025-12-03 03:18:18,181 - root - INFO - Logging setup complete
+2025-12-03 03:18:18,181 - team1_pipeline - INFO - Pipeline initialized successfully
+2025-12-03 03:18:18,181 - __main__ - INFO - Starting pipeline execution...
+2025-12-03 03:18:18,181 - team1_pipeline - INFO - Starting pipeline with 100 images
+2025-12-03 03:18:18,181 - team1_pipeline - INFO - Checking for intermediate results to resume from...
+2025-12-03 03:18:18,182 - team1_pipeline - INFO - No intermediate results found - Starting from Stage 1...
+2025-12-03 03:18:18,182 - team1_pipeline - INFO - Stage 1: Filtering images...
+2025-12-03 03:18:18,184 - src.filtering.binning - INFO - Loading images from HuggingFaceM4__ChartQA/train/
+2025-12-03 03:18:37,617 - src.filtering.binning - INFO -   Loaded 28299 images from HuggingFaceM4__ChartQA/train/
+2025-12-03 03:18:37,618 - src.filtering.binning - INFO - Loading images from lmms-lab__multimodal-open-r1-8k-verified/train/
+2025-12-03 03:18:42,562 - src.filtering.binning - INFO -   Loaded 7689 images from lmms-lab__multimodal-open-r1-8k-verified/train/
+2025-12-03 03:18:42,563 - src.filtering.binning - INFO - Loading images from Luckyjhg__Geo170K/train/
+2025-12-03 03:18:48,017 - src.filtering.binning - INFO -   Loaded 6027 images from Luckyjhg__Geo170K/train/
+2025-12-03 03:18:48,018 - src.filtering.binning - INFO - Loading images from Zhiqiang007__MathV360K/train/
+2025-12-03 03:19:12,602 - src.filtering.binning - INFO -   Loaded 34533 images from Zhiqiang007__MathV360K/train/
+2025-12-03 03:19:12,604 - src.filtering.binning - INFO - Loading images from oumi-ai__walton-multimodal-cold-start-r1-format/train/
+2025-12-03 03:19:19,133 - src.filtering.binning - INFO -   Loaded 10000 images from oumi-ai__walton-multimodal-cold-start-r1-format/train/
+2025-12-03 03:19:19,134 - src.filtering.binning - WARNING - No train folder found in .ipynb_checkpoints, skipping...
+2025-12-03 03:19:19,135 - src.filtering.binning - INFO - Loading images from vidore__infovqa_train/train/
+2025-12-03 03:19:25,814 - src.filtering.binning - INFO -   Loaded 10074 images from vidore__infovqa_train/train/
+2025-12-03 03:19:25,816 - src.filtering.binning - INFO - Loading images from derek-thomas__ScienceQA/train/
+2025-12-03 03:19:29,648 - src.filtering.binning - INFO -   Loaded 6218 images from derek-thomas__ScienceQA/train/
+2025-12-03 03:19:29,652 - src.filtering.binning - INFO - Total images loaded: 102840 from 7 datasets
+2025-12-03 03:19:29,670 - team1_pipeline - INFO - Found 102840 images
+2025-12-03 03:19:37,456 - team1_pipeline - INFO - Filtered to 100 images
+2025-12-03 03:19:37,468 - team1_pipeline - INFO - Stage 1 results saved to output/intermediate/stage1_filtering
+2025-12-03 03:19:37,468 - team1_pipeline - INFO - Stage 2: Binning images...
+2025-12-03 03:19:37,468 - src.filtering.binning - INFO - Binning started with 100 images
+directly resize
+2025-12-03 03:19:38,140 - src.filtering.binning - WARNING - DeepSeek OCR failed for /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/027555.jpg: 'DynamicCache' object has no attribute 'seen_tokens'
+
+image 1/1 /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/027555.jpg: 448x640 (no detections), 34.0ms
+Speed: 35.8ms preprocess, 34.0ms inference, 10.7ms postprocess per image at shape (1, 3, 448, 640)
+directly resize
+2025-12-03 03:19:42,703 - src.filtering.binning - WARNING - DeepSeek OCR failed for /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/027927.jpg: 'DynamicCache' object has no attribute 'seen_tokens'
+
+image 1/1 /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/027927.jpg: 448x640 1 tv, 3.4ms
+Speed: 1.4ms preprocess, 3.4ms inference, 0.8ms postprocess per image at shape (1, 3, 448, 640)
+directly resize
+2025-12-03 03:19:43,162 - src.filtering.binning - WARNING - DeepSeek OCR failed for /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/015242.jpg: 'DynamicCache' object has no attribute 'seen_tokens'
+
+image 1/1 /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/015242.jpg: 448x640 (no detections), 3.3ms
+Speed: 1.3ms preprocess, 3.3ms inference, 0.3ms postprocess per image at shape (1, 3, 448, 640)
+directly resize
+2025-12-03 03:19:43,545 - src.filtering.binning - WARNING - DeepSeek OCR failed for /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/019225.jpg: 'DynamicCache' object has no attribute 'seen_tokens'
+
+image 1/1 /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/019225.jpg: 448x640 (no detections), 3.4ms
+Speed: 1.3ms preprocess, 3.4ms inference, 0.3ms postprocess per image at shape (1, 3, 448, 640)
+directly resize
+2025-12-03 03:19:43,921 - src.filtering.binning - WARNING - DeepSeek OCR failed for /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/015997.jpg: 'DynamicCache' object has no attribute 'seen_tokens'
+
+image 1/1 /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/015997.jpg: 448x640 (no detections), 3.3ms
+Speed: 1.4ms preprocess, 3.3ms inference, 0.3ms postprocess per image at shape (1, 3, 448, 640)
+directly resize
+2025-12-03 03:19:44,423 - src.filtering.binning - WARNING - DeepSeek OCR failed for /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/019582.jpg: 'DynamicCache' object has no attribute 'seen_tokens'
+
+image 1/1 /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/019582.jpg: 640x544 (no detections), 31.7ms
+Speed: 1.4ms preprocess, 31.7ms inference, 0.3ms postprocess per image at shape (1, 3, 640, 544)
+directly resize
+2025-12-03 03:19:44,860 - src.filtering.binning - WARNING - DeepSeek OCR failed for /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/007045.jpg: 'DynamicCache' object has no attribute 'seen_tokens'
+
+image 1/1 /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/007045.jpg: 448x640 (no detections), 3.6ms
+Speed: 1.1ms preprocess, 3.6ms inference, 0.3ms postprocess per image at shape (1, 3, 448, 640)
+directly resize
+2025-12-03 03:19:45,285 - src.filtering.binning - WARNING - DeepSeek OCR failed for /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/018817.jpg: 'DynamicCache' object has no attribute 'seen_tokens'
+
+image 1/1 /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/018817.jpg: 448x640 (no detections), 3.3ms
+Speed: 1.1ms preprocess, 3.3ms inference, 0.3ms postprocess per image at shape (1, 3, 448, 640)
+directly resize
+2025-12-03 03:19:45,734 - src.filtering.binning - WARNING - DeepSeek OCR failed for /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/018465.jpg: 'DynamicCache' object has no attribute 'seen_tokens'
+
+image 1/1 /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/018465.jpg: 448x640 (no detections), 3.3ms
+Speed: 1.2ms preprocess, 3.3ms inference, 0.3ms postprocess per image at shape (1, 3, 448, 640)
+directly resize
+2025-12-03 03:19:46,110 - src.filtering.binning - WARNING - DeepSeek OCR failed for /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/023839.jpg: 'DynamicCache' object has no attribute 'seen_tokens'
+
+image 1/1 /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/023839.jpg: 448x640 1 kite, 3.5ms
+Speed: 1.2ms preprocess, 3.5ms inference, 0.7ms postprocess per image at shape (1, 3, 448, 640)
+directly resize
+2025-12-03 03:19:46,535 - src.filtering.binning - WARNING - DeepSeek OCR failed for /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/014402.jpg: 'DynamicCache' object has no attribute 'seen_tokens'
+
+image 1/1 /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/014402.jpg: 448x640 (no detections), 3.3ms
+Speed: 1.1ms preprocess, 3.3ms inference, 0.3ms postprocess per image at shape (1, 3, 448, 640)
+directly resize
+2025-12-03 03:19:46,895 - src.filtering.binning - WARNING - DeepSeek OCR failed for /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/014870.jpg: 'DynamicCache' object has no attribute 'seen_tokens'
+
+image 1/1 /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/014870.jpg: 448x640 (no detections), 3.3ms
+Speed: 1.1ms preprocess, 3.3ms inference, 0.3ms postprocess per image at shape (1, 3, 448, 640)
+directly resize
+2025-12-03 03:19:47,269 - src.filtering.binning - WARNING - DeepSeek OCR failed for /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/026315.jpg: 'DynamicCache' object has no attribute 'seen_tokens'
+
+image 1/1 /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/026315.jpg: 448x640 (no detections), 3.3ms
+Speed: 1.1ms preprocess, 3.3ms inference, 0.3ms postprocess per image at shape (1, 3, 448, 640)
+directly resize
+2025-12-03 03:19:47,693 - src.filtering.binning - WARNING - DeepSeek OCR failed for /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/006605.jpg: 'DynamicCache' object has no attribute 'seen_tokens'
+
+image 1/1 /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/006605.jpg: 448x640 (no detections), 3.3ms
+Speed: 1.1ms preprocess, 3.3ms inference, 0.3ms postprocess per image at shape (1, 3, 448, 640)
+directly resize
+2025-12-03 03:19:48,117 - src.filtering.binning - WARNING - DeepSeek OCR failed for /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/011889.jpg: 'DynamicCache' object has no attribute 'seen_tokens'
+
+image 1/1 /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/011889.jpg: 448x640 (no detections), 3.3ms
+Speed: 1.1ms preprocess, 3.3ms inference, 0.3ms postprocess per image at shape (1, 3, 448, 640)
+directly resize
+2025-12-03 03:19:48,493 - src.filtering.binning - WARNING - DeepSeek OCR failed for /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/017965.jpg: 'DynamicCache' object has no attribute 'seen_tokens'
+
+image 1/1 /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/017965.jpg: 448x640 (no detections), 3.3ms
+Speed: 1.1ms preprocess, 3.3ms inference, 0.3ms postprocess per image at shape (1, 3, 448, 640)
+directly resize
+2025-12-03 03:19:48,844 - src.filtering.binning - WARNING - DeepSeek OCR failed for /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/017517.jpg: 'DynamicCache' object has no attribute 'seen_tokens'
+
+image 1/1 /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/017517.jpg: 448x640 (no detections), 3.3ms
+Speed: 1.1ms preprocess, 3.3ms inference, 0.3ms postprocess per image at shape (1, 3, 448, 640)
+directly resize
+2025-12-03 03:19:49,268 - src.filtering.binning - WARNING - DeepSeek OCR failed for /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/025200.jpg: 'DynamicCache' object has no attribute 'seen_tokens'
+
+image 1/1 /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/025200.jpg: 448x640 (no detections), 3.3ms
+Speed: 1.2ms preprocess, 3.3ms inference, 0.3ms postprocess per image at shape (1, 3, 448, 640)
+directly resize
+2025-12-03 03:19:49,647 - src.filtering.binning - WARNING - DeepSeek OCR failed for /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/012249.jpg: 'DynamicCache' object has no attribute 'seen_tokens'
+
+image 1/1 /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/012249.jpg: 448x640 1 book, 3.3ms
+Speed: 1.1ms preprocess, 3.3ms inference, 0.7ms postprocess per image at shape (1, 3, 448, 640)
+directly resize
+2025-12-03 03:19:50,025 - src.filtering.binning - WARNING - DeepSeek OCR failed for /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/005710.jpg: 'DynamicCache' object has no attribute 'seen_tokens'
+
+image 1/1 /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/005710.jpg: 448x640 (no detections), 3.3ms
+Speed: 1.1ms preprocess, 3.3ms inference, 0.3ms postprocess per image at shape (1, 3, 448, 640)
+directly resize
+2025-12-03 03:19:50,450 - src.filtering.binning - WARNING - DeepSeek OCR failed for /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/009777.jpg: 'DynamicCache' object has no attribute 'seen_tokens'
+
+image 1/1 /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/009777.jpg: 448x640 (no detections), 3.4ms
+Speed: 1.1ms preprocess, 3.4ms inference, 0.3ms postprocess per image at shape (1, 3, 448, 640)
+directly resize
+2025-12-03 03:19:50,899 - src.filtering.binning - WARNING - DeepSeek OCR failed for /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/013409.jpg: 'DynamicCache' object has no attribute 'seen_tokens'
+
+image 1/1 /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/013409.jpg: 448x640 (no detections), 3.4ms
+Speed: 1.1ms preprocess, 3.4ms inference, 0.3ms postprocess per image at shape (1, 3, 448, 640)
+directly resize
+2025-12-03 03:19:51,251 - src.filtering.binning - WARNING - DeepSeek OCR failed for /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/024832.jpg: 'DynamicCache' object has no attribute 'seen_tokens'
+
+image 1/1 /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/024832.jpg: 448x640 (no detections), 3.3ms
+Speed: 1.1ms preprocess, 3.3ms inference, 0.3ms postprocess per image at shape (1, 3, 448, 640)
+directly resize
+2025-12-03 03:19:51,699 - src.filtering.binning - WARNING - DeepSeek OCR failed for /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/024440.jpg: 'DynamicCache' object has no attribute 'seen_tokens'
+
+image 1/1 /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/024440.jpg: 448x640 (no detections), 3.3ms
+Speed: 1.1ms preprocess, 3.3ms inference, 0.3ms postprocess per image at shape (1, 3, 448, 640)
+directly resize
+2025-12-03 03:19:52,099 - src.filtering.binning - WARNING - DeepSeek OCR failed for /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/016357.jpg: 'DynamicCache' object has no attribute 'seen_tokens'
+
+image 1/1 /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/016357.jpg: 448x640 (no detections), 3.3ms
+Speed: 1.1ms preprocess, 3.3ms inference, 0.3ms postprocess per image at shape (1, 3, 448, 640)
+directly resize
+2025-12-03 03:19:52,475 - src.filtering.binning - WARNING - DeepSeek OCR failed for /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/008690.jpg: 'DynamicCache' object has no attribute 'seen_tokens'
+
+image 1/1 /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/008690.jpg: 448x640 (no detections), 3.3ms
+Speed: 1.1ms preprocess, 3.3ms inference, 0.3ms postprocess per image at shape (1, 3, 448, 640)
+directly resize
+2025-12-03 03:19:52,851 - src.filtering.binning - WARNING - DeepSeek OCR failed for /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/008137.jpg: 'DynamicCache' object has no attribute 'seen_tokens'
+
+image 1/1 /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/008137.jpg: 448x640 (no detections), 3.3ms
+Speed: 1.1ms preprocess, 3.3ms inference, 0.3ms postprocess per image at shape (1, 3, 448, 640)
+directly resize
+2025-12-03 03:19:53,129 - src.filtering.binning - WARNING - DeepSeek OCR failed for /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/016882.jpg: 'DynamicCache' object has no attribute 'seen_tokens'
+
+image 1/1 /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/016882.jpg: 448x640 1 kite, 3.4ms
+Speed: 1.1ms preprocess, 3.4ms inference, 0.6ms postprocess per image at shape (1, 3, 448, 640)
+directly resize
+2025-12-03 03:19:53,531 - src.filtering.binning - WARNING - DeepSeek OCR failed for /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/004150.jpg: 'DynamicCache' object has no attribute 'seen_tokens'
+
+image 1/1 /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/004150.jpg: 448x640 1 clock, 3.3ms
+Speed: 1.1ms preprocess, 3.3ms inference, 0.7ms postprocess per image at shape (1, 3, 448, 640)
+directly resize
+2025-12-03 03:19:54,010 - src.filtering.binning - WARNING - DeepSeek OCR failed for /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/018004.jpg: 'DynamicCache' object has no attribute 'seen_tokens'
+
+image 1/1 /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/018004.jpg: 448x640 (no detections), 3.4ms
+Speed: 1.1ms preprocess, 3.4ms inference, 0.3ms postprocess per image at shape (1, 3, 448, 640)
+directly resize
+2025-12-03 03:19:54,439 - src.filtering.binning - WARNING - DeepSeek OCR failed for /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/026774.jpg: 'DynamicCache' object has no attribute 'seen_tokens'
+
+image 1/1 /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/026774.jpg: 640x448 (no detections), 31.9ms
+Speed: 1.2ms preprocess, 31.9ms inference, 0.3ms postprocess per image at shape (1, 3, 640, 448)
+directly resize
+2025-12-03 03:19:54,832 - src.filtering.binning - WARNING - DeepSeek OCR failed for /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/014063.jpg: 'DynamicCache' object has no attribute 'seen_tokens'
+
+image 1/1 /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/014063.jpg: 448x640 (no detections), 3.6ms
+Speed: 1.1ms preprocess, 3.6ms inference, 0.3ms postprocess per image at shape (1, 3, 448, 640)
+directly resize
+2025-12-03 03:19:55,355 - src.filtering.binning - WARNING - DeepSeek OCR failed for /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/003948.jpg: 'DynamicCache' object has no attribute 'seen_tokens'
+
+image 1/1 /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/003948.jpg: 448x640 (no detections), 3.3ms
+Speed: 1.1ms preprocess, 3.3ms inference, 0.3ms postprocess per image at shape (1, 3, 448, 640)
+directly resize
+2025-12-03 03:19:55,779 - src.filtering.binning - WARNING - DeepSeek OCR failed for /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/006264.jpg: 'DynamicCache' object has no attribute 'seen_tokens'
+
+image 1/1 /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/006264.jpg: 448x640 (no detections), 3.3ms
+Speed: 1.1ms preprocess, 3.3ms inference, 0.3ms postprocess per image at shape (1, 3, 448, 640)
+directly resize
+2025-12-03 03:19:56,208 - src.filtering.binning - WARNING - DeepSeek OCR failed for /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/015623.jpg: 'DynamicCache' object has no attribute 'seen_tokens'
+
+image 1/1 /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/015623.jpg: 640x544 (no detections), 3.7ms
+Speed: 1.4ms preprocess, 3.7ms inference, 0.3ms postprocess per image at shape (1, 3, 640, 544)
+directly resize
+2025-12-03 03:19:56,666 - src.filtering.binning - WARNING - DeepSeek OCR failed for /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/027134.jpg: 'DynamicCache' object has no attribute 'seen_tokens'
+
+image 1/1 /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/027134.jpg: 448x640 (no detections), 3.6ms
+Speed: 1.1ms preprocess, 3.6ms inference, 0.3ms postprocess per image at shape (1, 3, 448, 640)
+directly resize
+2025-12-03 03:19:57,043 - src.filtering.binning - WARNING - DeepSeek OCR failed for /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/007383.jpg: 'DynamicCache' object has no attribute 'seen_tokens'
+
+image 1/1 /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/007383.jpg: 448x640 (no detections), 3.3ms
+Speed: 1.2ms preprocess, 3.3ms inference, 0.3ms postprocess per image at shape (1, 3, 448, 640)
+directly resize
+2025-12-03 03:19:57,467 - src.filtering.binning - WARNING - DeepSeek OCR failed for /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/015184.jpg: 'DynamicCache' object has no attribute 'seen_tokens'
+
+image 1/1 /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/015184.jpg: 448x640 (no detections), 3.4ms
+Speed: 1.1ms preprocess, 3.4ms inference, 0.3ms postprocess per image at shape (1, 3, 448, 640)
+directly resize
+2025-12-03 03:19:57,922 - src.filtering.binning - WARNING - DeepSeek OCR failed for /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/027693.jpg: 'DynamicCache' object has no attribute 'seen_tokens'
+
+image 1/1 /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/027693.jpg: 448x640 (no detections), 3.3ms
+Speed: 1.1ms preprocess, 3.3ms inference, 0.3ms postprocess per image at shape (1, 3, 448, 640)
+directly resize
+2025-12-03 03:19:58,308 - src.filtering.binning - WARNING - DeepSeek OCR failed for /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/007856.jpg: 'DynamicCache' object has no attribute 'seen_tokens'
+
+image 1/1 /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/007856.jpg: 640x384 (no detections), 32.7ms
+Speed: 1.5ms preprocess, 32.7ms inference, 0.3ms postprocess per image at shape (1, 3, 640, 384)
+directly resize
+2025-12-03 03:19:58,752 - src.filtering.binning - WARNING - DeepSeek OCR failed for /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/007424.jpg: 'DynamicCache' object has no attribute 'seen_tokens'
+
+image 1/1 /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/007424.jpg: 448x640 (no detections), 3.6ms
+Speed: 1.1ms preprocess, 3.6ms inference, 0.3ms postprocess per image at shape (1, 3, 448, 640)
+directly resize
+2025-12-03 03:19:59,081 - src.filtering.binning - WARNING - DeepSeek OCR failed for /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/016736.jpg: 'DynamicCache' object has no attribute 'seen_tokens'
+
+image 1/1 /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/016736.jpg: 448x640 (no detections), 3.3ms
+Speed: 1.1ms preprocess, 3.3ms inference, 0.3ms postprocess per image at shape (1, 3, 448, 640)
+directly resize
+2025-12-03 03:19:59,530 - src.filtering.binning - WARNING - DeepSeek OCR failed for /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/024021.jpg: 'DynamicCache' object has no attribute 'seen_tokens'
+
+image 1/1 /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/024021.jpg: 448x640 (no detections), 3.3ms
+Speed: 1.1ms preprocess, 3.3ms inference, 0.3ms postprocess per image at shape (1, 3, 448, 640)
+directly resize
+2025-12-03 03:19:59,956 - src.filtering.binning - WARNING - DeepSeek OCR failed for /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/013068.jpg: 'DynamicCache' object has no attribute 'seen_tokens'
+
+image 1/1 /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/013068.jpg: 448x640 (no detections), 3.3ms
+Speed: 1.1ms preprocess, 3.3ms inference, 0.3ms postprocess per image at shape (1, 3, 448, 640)
+directly resize
+2025-12-03 03:20:00,381 - src.filtering.binning - WARNING - DeepSeek OCR failed for /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/004296.jpg: 'DynamicCache' object has no attribute 'seen_tokens'
+
+image 1/1 /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/004296.jpg: 448x640 1 umbrella, 3.3ms
+Speed: 1.1ms preprocess, 3.3ms inference, 0.7ms postprocess per image at shape (1, 3, 448, 640)
+directly resize
+2025-12-03 03:20:00,759 - src.filtering.binning - WARNING - DeepSeek OCR failed for /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/028046.jpg: 'DynamicCache' object has no attribute 'seen_tokens'
+
+image 1/1 /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/028046.jpg: 448x640 (no detections), 3.3ms
+Speed: 1.1ms preprocess, 3.3ms inference, 0.3ms postprocess per image at shape (1, 3, 448, 640)
+directly resize
+2025-12-03 03:20:01,220 - src.filtering.binning - WARNING - DeepSeek OCR failed for /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/016091.jpg: 'DynamicCache' object has no attribute 'seen_tokens'
+
+image 1/1 /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/016091.jpg: 448x640 (no detections), 3.3ms
+Speed: 1.1ms preprocess, 3.3ms inference, 0.3ms postprocess per image at shape (1, 3, 448, 640)
+directly resize
+2025-12-03 03:20:01,621 - src.filtering.binning - WARNING - DeepSeek OCR failed for /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/008924.jpg: 'DynamicCache' object has no attribute 'seen_tokens'
+
+image 1/1 /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/008924.jpg: 448x640 (no detections), 3.3ms
+Speed: 1.1ms preprocess, 3.3ms inference, 0.3ms postprocess per image at shape (1, 3, 448, 640)
+directly resize
+2025-12-03 03:20:02,069 - src.filtering.binning - WARNING - DeepSeek OCR failed for /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/008556.jpg: 'DynamicCache' object has no attribute 'seen_tokens'
+
+image 1/1 /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/008556.jpg: 448x640 (no detections), 3.3ms
+Speed: 1.1ms preprocess, 3.3ms inference, 0.3ms postprocess per image at shape (1, 3, 448, 640)
+directly resize
+2025-12-03 03:20:02,446 - src.filtering.binning - WARNING - DeepSeek OCR failed for /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/024786.jpg: 'DynamicCache' object has no attribute 'seen_tokens'
+
+image 1/1 /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/024786.jpg: 448x640 1 tv, 3.3ms
+Speed: 1.1ms preprocess, 3.3ms inference, 0.6ms postprocess per image at shape (1, 3, 448, 640)
+directly resize
+2025-12-03 03:20:02,896 - src.filtering.binning - WARNING - DeepSeek OCR failed for /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/004531.jpg: 'DynamicCache' object has no attribute 'seen_tokens'
+
+image 1/1 /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/004531.jpg: 448x640 (no detections), 3.3ms
+Speed: 1.1ms preprocess, 3.3ms inference, 0.3ms postprocess per image at shape (1, 3, 448, 640)
+directly resize
+2025-12-03 03:20:03,319 - src.filtering.binning - WARNING - DeepSeek OCR failed for /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/004943.jpg: 'DynamicCache' object has no attribute 'seen_tokens'
+
+image 1/1 /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/004943.jpg: 448x640 (no detections), 3.3ms
+Speed: 1.1ms preprocess, 3.3ms inference, 0.3ms postprocess per image at shape (1, 3, 448, 640)
+directly resize
+2025-12-03 03:20:03,742 - src.filtering.binning - WARNING - DeepSeek OCR failed for /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/000388.jpg: 'DynamicCache' object has no attribute 'seen_tokens'
+
+image 1/1 /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/000388.jpg: 640x512 (no detections), 31.6ms
+Speed: 1.1ms preprocess, 31.6ms inference, 0.3ms postprocess per image at shape (1, 3, 640, 512)
+directly resize
+2025-12-03 03:20:04,204 - src.filtering.binning - WARNING - DeepSeek OCR failed for /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/012628.jpg: 'DynamicCache' object has no attribute 'seen_tokens'
+
+image 1/1 /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/012628.jpg: 640x640 (no detections), 3.6ms
+Speed: 1.5ms preprocess, 3.6ms inference, 0.3ms postprocess per image at shape (1, 3, 640, 640)
+directly resize
+2025-12-03 03:20:04,656 - src.filtering.binning - WARNING - DeepSeek OCR failed for /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/017176.jpg: 'DynamicCache' object has no attribute 'seen_tokens'
+
+image 1/1 /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/017176.jpg: 448x640 (no detections), 3.6ms
+Speed: 1.2ms preprocess, 3.6ms inference, 0.3ms postprocess per image at shape (1, 3, 448, 640)
+directly resize
+2025-12-03 03:20:05,080 - src.filtering.binning - WARNING - DeepSeek OCR failed for /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/005371.jpg: 'DynamicCache' object has no attribute 'seen_tokens'
+
+image 1/1 /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/005371.jpg: 448x640 (no detections), 3.3ms
+Speed: 1.1ms preprocess, 3.3ms inference, 0.3ms postprocess per image at shape (1, 3, 448, 640)
+directly resize
+2025-12-03 03:20:05,504 - src.filtering.binning - WARNING - DeepSeek OCR failed for /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/020698.jpg: 'DynamicCache' object has no attribute 'seen_tokens'
+
+image 1/1 /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/020698.jpg: 448x640 (no detections), 3.4ms
+Speed: 1.1ms preprocess, 3.4ms inference, 0.3ms postprocess per image at shape (1, 3, 448, 640)
+directly resize
+2025-12-03 03:20:05,906 - src.filtering.binning - WARNING - DeepSeek OCR failed for /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/009812.jpg: 'DynamicCache' object has no attribute 'seen_tokens'
+
+image 1/1 /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/009812.jpg: 448x640 (no detections), 3.3ms
+Speed: 1.1ms preprocess, 3.3ms inference, 0.3ms postprocess per image at shape (1, 3, 448, 640)
+directly resize
+2025-12-03 03:20:06,328 - src.filtering.binning - WARNING - DeepSeek OCR failed for /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/009460.jpg: 'DynamicCache' object has no attribute 'seen_tokens'
+
+image 1/1 /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/009460.jpg: 448x640 (no detections), 3.4ms
+Speed: 1.1ms preprocess, 3.4ms inference, 0.3ms postprocess per image at shape (1, 3, 448, 640)
+directly resize
+2025-12-03 03:20:06,751 - src.filtering.binning - WARNING - DeepSeek OCR failed for /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/000359.jpg: 'DynamicCache' object has no attribute 'seen_tokens'
+
+image 1/1 /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/000359.jpg: 480x640 (no detections), 31.6ms
+Speed: 1.0ms preprocess, 31.6ms inference, 0.3ms postprocess per image at shape (1, 3, 480, 640)
+directly resize
+2025-12-03 03:20:07,296 - src.filtering.binning - WARNING - DeepSeek OCR failed for /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/005407.jpg: 'DynamicCache' object has no attribute 'seen_tokens'
+
+image 1/1 /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/005407.jpg: 448x640 1 airplane, 3.6ms
+Speed: 1.2ms preprocess, 3.6ms inference, 0.6ms postprocess per image at shape (1, 3, 448, 640)
+directly resize
+2025-12-03 03:20:07,648 - src.filtering.binning - WARNING - DeepSeek OCR failed for /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/005875.jpg: 'DynamicCache' object has no attribute 'seen_tokens'
+
+image 1/1 /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/005875.jpg: 448x640 1 microwave, 3.3ms
+Speed: 1.1ms preprocess, 3.3ms inference, 0.7ms postprocess per image at shape (1, 3, 448, 640)
+directly resize
+2025-12-03 03:20:08,098 - src.filtering.binning - WARNING - DeepSeek OCR failed for /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/025117.jpg: 'DynamicCache' object has no attribute 'seen_tokens'
+
+image 1/1 /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/025117.jpg: 448x640 1 tv, 3.3ms
+Speed: 1.1ms preprocess, 3.3ms inference, 0.6ms postprocess per image at shape (1, 3, 448, 640)
+directly resize
+2025-12-03 03:20:08,501 - src.filtering.binning - WARNING - DeepSeek OCR failed for /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/017600.jpg: 'DynamicCache' object has no attribute 'seen_tokens'
+
+image 1/1 /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/017600.jpg: 448x640 (no detections), 3.3ms
+Speed: 1.1ms preprocess, 3.3ms inference, 0.3ms postprocess per image at shape (1, 3, 448, 640)
+directly resize
+2025-12-03 03:20:08,927 - src.filtering.binning - WARNING - DeepSeek OCR failed for /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/020649.jpg: 'DynamicCache' object has no attribute 'seen_tokens'
+
+image 1/1 /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/020649.jpg: 448x640 1 tv, 3.3ms
+Speed: 1.1ms preprocess, 3.3ms inference, 0.6ms postprocess per image at shape (1, 3, 448, 640)
+directly resize
+2025-12-03 03:20:09,378 - src.filtering.binning - WARNING - DeepSeek OCR failed for /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/004247.jpg: 'DynamicCache' object has no attribute 'seen_tokens'
+
+image 1/1 /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/004247.jpg: 448x640 (no detections), 3.3ms
+Speed: 1.1ms preprocess, 3.3ms inference, 0.3ms postprocess per image at shape (1, 3, 448, 640)
+directly resize
+2025-12-03 03:20:09,827 - src.filtering.binning - WARNING - DeepSeek OCR failed for /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/001519.jpg: 'DynamicCache' object has no attribute 'seen_tokens'
+
+image 1/1 /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/001519.jpg: 480x640 (no detections), 3.6ms
+Speed: 1.2ms preprocess, 3.6ms inference, 0.3ms postprocess per image at shape (1, 3, 480, 640)
+directly resize
+2025-12-03 03:20:10,278 - src.filtering.binning - WARNING - DeepSeek OCR failed for /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/028097.jpg: 'DynamicCache' object has no attribute 'seen_tokens'
+
+image 1/1 /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/028097.jpg: 448x640 (no detections), 3.6ms
+Speed: 1.1ms preprocess, 3.6ms inference, 0.3ms postprocess per image at shape (1, 3, 448, 640)
+directly resize
+2025-12-03 03:20:10,679 - src.filtering.binning - WARNING - DeepSeek OCR failed for /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/008220.jpg: 'DynamicCache' object has no attribute 'seen_tokens'
+
+image 1/1 /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/008220.jpg: 448x640 (no detections), 3.3ms
+Speed: 1.1ms preprocess, 3.3ms inference, 0.3ms postprocess per image at shape (1, 3, 448, 640)
+directly resize
+2025-12-03 03:20:11,034 - src.filtering.binning - WARNING - DeepSeek OCR failed for /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/004992.jpg: 'DynamicCache' object has no attribute 'seen_tokens'
+
+image 1/1 /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/004992.jpg: 448x640 (no detections), 3.3ms
+Speed: 1.1ms preprocess, 3.3ms inference, 0.3ms postprocess per image at shape (1, 3, 448, 640)
+directly resize
+2025-12-03 03:20:11,412 - src.filtering.binning - WARNING - DeepSeek OCR failed for /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/021009.jpg: 'DynamicCache' object has no attribute 'seen_tokens'
+
+image 1/1 /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/021009.jpg: 448x640 (no detections), 3.3ms
+Speed: 1.1ms preprocess, 3.3ms inference, 0.3ms postprocess per image at shape (1, 3, 448, 640)
+directly resize
+2025-12-03 03:20:11,792 - src.filtering.binning - WARNING - DeepSeek OCR failed for /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/016040.jpg: 'DynamicCache' object has no attribute 'seen_tokens'
+
+image 1/1 /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/016040.jpg: 640x576 (no detections), 48.7ms
+Speed: 1.5ms preprocess, 48.7ms inference, 0.3ms postprocess per image at shape (1, 3, 640, 576)
+directly resize
+2025-12-03 03:20:12,170 - src.filtering.binning - WARNING - DeepSeek OCR failed for /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/024757.jpg: 'DynamicCache' object has no attribute 'seen_tokens'
+
+image 1/1 /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/024757.jpg: 448x640 (no detections), 3.6ms
+Speed: 1.1ms preprocess, 3.6ms inference, 0.3ms postprocess per image at shape (1, 3, 448, 640)
+directly resize
+2025-12-03 03:20:12,573 - src.filtering.binning - WARNING - DeepSeek OCR failed for /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/007352.jpg: 'DynamicCache' object has no attribute 'seen_tokens'
+
+image 1/1 /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/007352.jpg: 640x544 (no detections), 3.6ms
+Speed: 1.4ms preprocess, 3.6ms inference, 0.3ms postprocess per image at shape (1, 3, 640, 544)
+directly resize
+2025-12-03 03:20:13,037 - src.filtering.binning - WARNING - DeepSeek OCR failed for /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/019695.jpg: 'DynamicCache' object has no attribute 'seen_tokens'
+
+image 1/1 /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/019695.jpg: 448x640 (no detections), 3.6ms
+Speed: 1.1ms preprocess, 3.6ms inference, 0.3ms postprocess per image at shape (1, 3, 448, 640)
+directly resize
+2025-12-03 03:20:13,420 - src.filtering.binning - WARNING - DeepSeek OCR failed for /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/019132.jpg: 'DynamicCache' object has no attribute 'seen_tokens'
+
+image 1/1 /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/019132.jpg: 448x640 (no detections), 3.3ms
+Speed: 1.1ms preprocess, 3.3ms inference, 0.3ms postprocess per image at shape (1, 3, 448, 640)
+directly resize
+2025-12-03 03:20:13,819 - src.filtering.binning - WARNING - DeepSeek OCR failed for /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/007887.jpg: 'DynamicCache' object has no attribute 'seen_tokens'
+
+image 1/1 /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/007887.jpg: 448x640 (no detections), 3.3ms
+Speed: 1.1ms preprocess, 3.3ms inference, 0.3ms postprocess per image at shape (1, 3, 448, 640)
+directly resize
+2025-12-03 03:20:14,170 - src.filtering.binning - WARNING - DeepSeek OCR failed for /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/006960.jpg: 'DynamicCache' object has no attribute 'seen_tokens'
+
+image 1/1 /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/006960.jpg: 448x640 1 tv, 3.3ms
+Speed: 1.1ms preprocess, 3.3ms inference, 0.6ms postprocess per image at shape (1, 3, 448, 640)
+directly resize
+2025-12-03 03:20:14,548 - src.filtering.binning - WARNING - DeepSeek OCR failed for /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/006512.jpg: 'DynamicCache' object has no attribute 'seen_tokens'
+
+image 1/1 /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/006512.jpg: 448x640 (no detections), 3.3ms
+Speed: 1.1ms preprocess, 3.3ms inference, 0.3ms postprocess per image at shape (1, 3, 448, 640)
+directly resize
+2025-12-03 03:20:14,973 - src.filtering.binning - WARNING - DeepSeek OCR failed for /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/014715.jpg: 'DynamicCache' object has no attribute 'seen_tokens'
+
+image 1/1 /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/014715.jpg: 448x640 (no detections), 3.3ms
+Speed: 1.1ms preprocess, 3.3ms inference, 0.3ms postprocess per image at shape (1, 3, 448, 640)
+directly resize
+2025-12-03 03:20:15,350 - src.filtering.binning - WARNING - DeepSeek OCR failed for /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/003999.jpg: 'DynamicCache' object has no attribute 'seen_tokens'
+
+image 1/1 /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/003999.jpg: 448x640 1 umbrella, 3.3ms
+Speed: 1.1ms preprocess, 3.3ms inference, 0.7ms postprocess per image at shape (1, 3, 448, 640)
+directly resize
+2025-12-03 03:20:15,752 - src.filtering.binning - WARNING - DeepSeek OCR failed for /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/018772.jpg: 'DynamicCache' object has no attribute 'seen_tokens'
+
+image 1/1 /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/018772.jpg: 448x640 (no detections), 3.3ms
+Speed: 1.1ms preprocess, 3.3ms inference, 0.3ms postprocess per image at shape (1, 3, 448, 640)
+directly resize
+2025-12-03 03:20:16,179 - src.filtering.binning - WARNING - DeepSeek OCR failed for /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/001178.jpg: 'DynamicCache' object has no attribute 'seen_tokens'
+
+image 1/1 /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/001178.jpg: 480x640 (no detections), 3.6ms
+Speed: 1.3ms preprocess, 3.6ms inference, 0.3ms postprocess per image at shape (1, 3, 480, 640)
+directly resize
+2025-12-03 03:20:16,628 - src.filtering.binning - WARNING - DeepSeek OCR failed for /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/004626.jpg: 'DynamicCache' object has no attribute 'seen_tokens'
+
+image 1/1 /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/004626.jpg: 448x640 (no detections), 3.6ms
+Speed: 1.1ms preprocess, 3.6ms inference, 0.3ms postprocess per image at shape (1, 3, 448, 640)
+directly resize
+2025-12-03 03:20:17,125 - src.filtering.binning - WARNING - DeepSeek OCR failed for /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/024491.jpg: 'DynamicCache' object has no attribute 'seen_tokens'
+
+image 1/1 /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/024491.jpg: 448x640 (no detections), 3.3ms
+Speed: 1.2ms preprocess, 3.3ms inference, 0.3ms postprocess per image at shape (1, 3, 448, 640)
+directly resize
+2025-12-03 03:20:17,549 - src.filtering.binning - WARNING - DeepSeek OCR failed for /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/008641.jpg: 'DynamicCache' object has no attribute 'seen_tokens'
+
+image 1/1 /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/008641.jpg: 448x640 (no detections), 3.3ms
+Speed: 1.1ms preprocess, 3.3ms inference, 0.3ms postprocess per image at shape (1, 3, 448, 640)
+directly resize
+2025-12-03 03:20:17,925 - src.filtering.binning - WARNING - DeepSeek OCR failed for /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/016386.jpg: 'DynamicCache' object has no attribute 'seen_tokens'
+
+image 1/1 /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/016386.jpg: 448x640 (no detections), 3.3ms
+Speed: 1.1ms preprocess, 3.3ms inference, 0.3ms postprocess per image at shape (1, 3, 448, 640)
+directly resize
+2025-12-03 03:20:18,278 - src.filtering.binning - WARNING - DeepSeek OCR failed for /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/004181.jpg: 'DynamicCache' object has no attribute 'seen_tokens'
+
+image 1/1 /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/004181.jpg: 448x640 1 stop sign, 3.4ms
+Speed: 1.1ms preprocess, 3.4ms inference, 0.6ms postprocess per image at shape (1, 3, 448, 640)
+directly resize
+2025-12-03 03:20:18,705 - src.filtering.binning - WARNING - DeepSeek OCR failed for /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/024336.jpg: 'DynamicCache' object has no attribute 'seen_tokens'
+
+image 1/1 /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/024336.jpg: 448x640 (no detections), 3.4ms
+Speed: 1.1ms preprocess, 3.4ms inference, 0.3ms postprocess per image at shape (1, 3, 448, 640)
+directly resize
+2025-12-03 03:20:19,131 - src.filtering.binning - WARNING - DeepSeek OCR failed for /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/016853.jpg: 'DynamicCache' object has no attribute 'seen_tokens'
+
+image 1/1 /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/016853.jpg: 448x640 (no detections), 3.3ms
+Speed: 1.1ms preprocess, 3.3ms inference, 0.3ms postprocess per image at shape (1, 3, 448, 640)
+directly resize
+2025-12-03 03:20:19,558 - src.filtering.binning - WARNING - DeepSeek OCR failed for /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/021468.jpg: 'DynamicCache' object has no attribute 'seen_tokens'
+
+image 1/1 /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/021468.jpg: 448x640 1 book, 3.3ms
+Speed: 1.1ms preprocess, 3.3ms inference, 0.7ms postprocess per image at shape (1, 3, 448, 640)
+directly resize
+2025-12-03 03:20:19,990 - src.filtering.binning - WARNING - DeepSeek OCR failed for /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/009001.jpg: 'DynamicCache' object has no attribute 'seen_tokens'
+
+image 1/1 /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/009001.jpg: 640x544 (no detections), 3.6ms
+Speed: 1.3ms preprocess, 3.6ms inference, 0.3ms postprocess per image at shape (1, 3, 640, 544)
+directly resize
+2025-12-03 03:20:20,326 - src.filtering.binning - WARNING - DeepSeek OCR failed for /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/012298.jpg: 'DynamicCache' object has no attribute 'seen_tokens'
+
+image 1/1 /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/012298.jpg: 448x640 (no detections), 3.6ms
+Speed: 1.5ms preprocess, 3.6ms inference, 0.3ms postprocess per image at shape (1, 3, 448, 640)
+directly resize
+2025-12-03 03:20:20,701 - src.filtering.binning - WARNING - DeepSeek OCR failed for /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/005066.jpg: 'DynamicCache' object has no attribute 'seen_tokens'
+
+image 1/1 /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/005066.jpg: 448x640 1 stop sign, 3.3ms
+Speed: 1.1ms preprocess, 3.3ms inference, 0.6ms postprocess per image at shape (1, 3, 448, 640)
+directly resize
+2025-12-03 03:20:21,127 - src.filtering.binning - WARNING - DeepSeek OCR failed for /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/020228.jpg: 'DynamicCache' object has no attribute 'seen_tokens'
+
+image 1/1 /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/020228.jpg: 448x640 (no detections), 3.4ms
+Speed: 1.2ms preprocess, 3.4ms inference, 0.3ms postprocess per image at shape (1, 3, 448, 640)
+directly resize
+2025-12-03 03:20:21,505 - src.filtering.binning - WARNING - DeepSeek OCR failed for /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/017261.jpg: 'DynamicCache' object has no attribute 'seen_tokens'
+
+image 1/1 /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/017261.jpg: 448x640 (no detections), 3.4ms
+Speed: 1.1ms preprocess, 3.4ms inference, 0.3ms postprocess per image at shape (1, 3, 448, 640)
+directly resize
+2025-12-03 03:20:21,859 - src.filtering.binning - WARNING - DeepSeek OCR failed for /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/025904.jpg: 'DynamicCache' object has no attribute 'seen_tokens'
+
+image 1/1 /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/025904.jpg: 448x640 (no detections), 3.3ms
+Speed: 1.1ms preprocess, 3.3ms inference, 0.3ms postprocess per image at shape (1, 3, 448, 640)
+directly resize
+2025-12-03 03:20:22,163 - src.filtering.binning - WARNING - DeepSeek OCR failed for /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/025576.jpg: 'DynamicCache' object has no attribute 'seen_tokens'
+
+image 1/1 /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/025576.jpg: 448x640 (no detections), 3.3ms
+Speed: 1.1ms preprocess, 3.3ms inference, 0.3ms postprocess per image at shape (1, 3, 448, 640)
+directly resize
+2025-12-03 03:20:22,612 - src.filtering.binning - WARNING - DeepSeek OCR failed for /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/006173.jpg: 'DynamicCache' object has no attribute 'seen_tokens'
+
+image 1/1 /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/006173.jpg: 448x640 (no detections), 3.3ms
+Speed: 1.1ms preprocess, 3.3ms inference, 0.3ms postprocess per image at shape (1, 3, 448, 640)
+directly resize
+2025-12-03 03:20:23,061 - src.filtering.binning - WARNING - DeepSeek OCR failed for /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/014374.jpg: 'DynamicCache' object has no attribute 'seen_tokens'
+
+image 1/1 /mnt/lustre/koa/scratch/shu4/DCVLR/data/HuggingFaceM4__ChartQA/train/014374.jpg: 448x640 1 tv, 3.3ms
+Speed: 1.1ms preprocess, 3.3ms inference, 0.6ms postprocess per image at shape (1, 3, 448, 640)
+2025-12-03 03:20:23,282 - src.filtering.binning - INFO - Binning complete:
+2025-12-03 03:20:23,282 - src.filtering.binning - INFO -   Started with: 100 images
+2025-12-03 03:20:23,282 - src.filtering.binning - INFO -   Bin A (Text/Arithmetic): 0 images
+2025-12-03 03:20:23,282 - src.filtering.binning - INFO -   Bin B (Object/Spatial): 0 images
+2025-12-03 03:20:23,283 - src.filtering.binning - INFO -   Bin C (Commonsense/Attribute): 100 images
+2025-12-03 03:20:23,283 - src.filtering.binning - INFO -   Total binned: 100 images
+2025-12-03 03:20:23,283 - team1_pipeline - INFO - Binned images - A: 0, B: 0, C: 20
+2025-12-03 03:20:23,293 - team1_pipeline - INFO - Stage 2 results saved to output/intermediate/stage2_binning
+2025-12-03 03:20:23,293 - team1_pipeline - INFO - Stage 3: Synthesizing Q/A pairs...
+2025-12-03 03:20:23,293 - team1_pipeline - INFO - Generating Q/A for Bin A
+2025-12-03 03:20:23,293 - team1_pipeline - INFO - Generating Q/A for Bin B
+2025-12-03 03:20:23,294 - team1_pipeline - INFO - Generating Q/A for Bin C
+2025-12-03 03:20:28,906 - __main__ - ERROR - Pipeline failed with error: 'DataSynthesisPipeline' object has no attribute 'qa_generator'
+Traceback (most recent call last):
+  File "/mnt/lustre/koa/scratch/shu4/DCVLR/scripts/run_pipeline.py", line 159, in main
+    results = pipeline.run(
+              ^^^^^^^^^^^^^
+  File "/mnt/lustre/koa/scratch/shu4/DCVLR/team1_pipeline.py", line 224, in run
+    qa_dataset = self.synthesis_stage(binned_images)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/mnt/lustre/koa/scratch/shu4/DCVLR/team1_pipeline.py", line 358, in synthesis_stage
+    qa = self.qa_generator.generate(
+         ^^^^^^^^^^^^^^^^^
+AttributeError: 'DataSynthesisPipeline' object has no attribute 'qa_generator'

@@ -271,23 +271,13 @@ class DataSynthesisPipeline:
 
         filtered_images = []
 
-        # Get the base directory for relative paths
-        base_dir = Path(self.images_dir).resolve()
-
         for img_path in tqdm(images_to_check, desc="Filtering"):
             # Apply filters
             if self.image_filter.check_resolution(img_path):
                 if self.image_filter.check_nsfw(img_path):
                     if not self.image_filter.is_duplicate(img_path):
-                        # Convert to relative path from base_dir
-                        try:
-                            rel_path = str(Path(img_path).relative_to(base_dir))
-                        except ValueError:
-                            # If path is not relative to base_dir, use absolute path
-                            rel_path = img_path
-
                         filtered_images.append({
-                            'path': rel_path,
+                            'path': img_path,
                             'id': Path(img_path).stem
                         })
 
@@ -317,14 +307,6 @@ class DataSynthesisPipeline:
             bins_ratio: Ratio for (A, B, C) bins
             filter_by_complexity: If True, pre-filter images by visual complexity
         """
-        # Convert relative paths to absolute paths for processing
-        base_dir = Path(self.images_dir).resolve()
-        for img_data in images:
-            # If path is relative, convert to absolute
-            img_path = Path(img_data['path'])
-            if not img_path.is_absolute():
-                img_data['path'] = str(base_dir / img_path)
-
         # Optional: Filter by complexity before binning
         if filter_by_complexity:
             logger.info("Pre-filtering images by complexity...")
@@ -364,14 +346,6 @@ class DataSynthesisPipeline:
         - LLM for Q/A generation
         """
         qa_dataset = []
-
-        # Convert relative paths to absolute paths for processing
-        base_dir = Path(self.images_dir).resolve()
-        for bin_type, images in binned_images.items():
-            for img_data in images:
-                img_path = Path(img_data['path'])
-                if not img_path.is_absolute():
-                    img_data['path'] = str(base_dir / img_path)
 
         for bin_type, images in binned_images.items():
             logger.info(f"Generating Q/A for Bin {bin_type}")
