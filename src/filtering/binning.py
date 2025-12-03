@@ -122,9 +122,6 @@ class ImageBinner:
         self.enable_multi_gpu = config.get('enable_multi_gpu', True)  # Auto-detect and use multiple GPUs
         self.gpu_manager = GPUManager()
 
-        # OCR backend selection (only for hybrid mode)
-        self.use_paddle_ocr = config.get('use_paddle_ocr', False)  # Use PaddleOCR instead of DeepSeek-OCR
-
         # Initialize models based on pipeline mode
         self._init_models()
     
@@ -166,7 +163,7 @@ class ImageBinner:
 
     def _init_hybrid_pipeline(self, device_map: Dict[str, str]):
         """Initialize models for hybrid pipeline mode (PaddleOCR + separate models)."""
-        logger.info("Setting up HYBRID pipeline (PaddleOCR/DeepSeek-OCR + YOLO/SAM + BLIP/BLIP2/Moondream)")
+        logger.info("Setting up HYBRID pipeline (PaddleOCR + YOLO/SAM + BLIP/BLIP2/Moondream)")
 
         # Check transformers version for BLIP models
         if self.captioner_backend in ['blip', 'blip2']:
@@ -180,120 +177,26 @@ class ImageBinner:
                     f"Consider upgrading: pip install --upgrade transformers"
                 )
 
-        # OCR for text detection - choose backend
+        # OCR for text detection - always use PaddleOCR in hybrid mode
         ocr_device = device_map['ocr']
 
-        if self.use_paddle_ocr or not DEEPSEEK_AVAILABLE:
-            # Use PaddleOCR (lightweight, ~200MB)
-            if not PADDLE_AVAILABLE:
-                raise ImportError(
-                    "PaddleOCR not installed. Install with: pip install paddleocr paddlepaddle-gpu"
-                )
-
-            logger.info(f"Loading PaddleOCR on {ocr_device}...")
-            # Convert PyTorch device format to PaddleOCR format
-            if ocr_device == "cpu":
-                paddle_device = "cpu"
-            else:
-                # Convert cuda:0 to gpu:0
-                gpu_id = int(ocr_device.split(":")[-1]) if ":" in ocr_device else 0
-                paddle_device = f"gpu:{gpu_id}"
-
-            self.ocr = PaddleOCR(
-                use_textline_orientation=True,
-                lang='en',
-                device=paddle_device,
-                enable_mkldnn=True if paddle_device == "cpu" else False,
+        # Use PaddleOCR (lightweight, ~200MB) - hybrid mode default
+        if not PADDLE_AVAILABLE:
+            raise ImportError(
+                "PaddleOCR not installed. Install with: pip install paddleocr paddlepaddle-gpu"
             )
-            self.ocr_backend = 'paddle'
-            logger.info(f"PaddleOCR loaded successfully on {ocr_device}")
 
-        else:
-            # Try DeepSeek-OCR (heavy, ~10GB) with automatic fallback to PaddleOCR
-            try:
-                logger.info(f"Loading DeepSeek-OCR on {ocr_device}...")
+        logger.info(f"Loading PaddleOCR on {ocr_device}...")
 
-                # Load model and tokenizer from HuggingFace
-                model_name = 'deepseek-ai/DeepSeek-OCR'
-                self.ocr_tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
-
-                # Determine dtype based on device
-                model_dtype = torch.bfloat16 if ocr_device != "cpu" else torch.float32
-
-                self.ocr_model = AutoModel.from_pretrained(
-                    model_name,
-                    _attn_implementation='flash_attention_2',
-                    torch_dtype=model_dtype,
-                    device_map=ocr_device if ocr_device != "cpu" else None,
-                    trust_remote_code=True,
-                    use_safetensors=True
-                )
-
-                # Ensure model is on correct device if device_map didn't work
-                if ocr_device != "cpu" and self.ocr_model.device.type == 'cpu':
-                    self.ocr_model = self.ocr_model.to(ocr_device)
-
-                self.ocr_model = self.ocr_model.eval()
-                self.ocr_device = ocr_device
-
-                # Set model size parameters based on config
-                model_size = self.config.get('deepseek_model_size', 'gundam').lower()
-                if model_size == 'tiny':
-                    self.ocr_base_size = 512
-                    self.ocr_image_size = 512
-                    self.ocr_crop_mode = False
-                elif model_size == 'small':
-                    self.ocr_base_size = 640
-                    self.ocr_image_size = 640
-                    self.ocr_crop_mode = False
-                elif model_size == 'base':
-                    self.ocr_base_size = 1024
-                    self.ocr_image_size = 1024
-                    self.ocr_crop_mode = False
-                elif model_size == 'large':
-                    self.ocr_base_size = 1280
-                    self.ocr_image_size = 1280
-                    self.ocr_crop_mode = False
-                else:  # gundam (default)
-                    self.ocr_base_size = 1024
-                    self.ocr_image_size = 640
-                    self.ocr_crop_mode = True
-
-                self.ocr_backend = 'deepseek'
-                logger.info(f"✓ DeepSeek-OCR loaded successfully on {ocr_device} (size: {model_size})")
-
-            except (RuntimeError, torch.cuda.OutOfMemoryError) as e:
-                # DeepSeek-OCR failed (likely OOM), fall back to PaddleOCR
-                logger.warning(f"✗ DeepSeek-OCR failed to load: {str(e)[:100]}...")
-                logger.warning("→ Falling back to PaddleOCR...")
-
-                if not PADDLE_AVAILABLE:
-                    raise ImportError(
-                        "DeepSeek-OCR failed and PaddleOCR not available. "
-                        "Install PaddleOCR with: pip install paddleocr paddlepaddle-gpu"
-                    )
-
-                # Clear any allocated memory
-                if torch.cuda.is_available():
-                    torch.cuda.empty_cache()
-
-                # Load PaddleOCR instead
-                # Convert PyTorch device format to PaddleOCR format
-                if ocr_device == "cpu":
-                    paddle_device = "cpu"
-                else:
-                    # Convert cuda:0 to gpu:0
-                    gpu_id = int(ocr_device.split(":")[-1]) if ":" in ocr_device else 0
-                    paddle_device = f"gpu:{gpu_id}"
-
-                self.ocr = PaddleOCR(
-                    use_textline_orientation=True,
-                    lang='en',
-                    device=paddle_device,
-                    enable_mkldnn=True if paddle_device == "cpu" else False,
-                )
-                self.ocr_backend = 'paddle'
-                logger.info(f"✓ PaddleOCR loaded successfully on {ocr_device} (fallback mode)")
+        # PaddleOCR new API - device is handled automatically based on GPU availability
+        self.ocr = PaddleOCR(
+            use_doc_orientation_classify=False,
+            use_doc_unwarping=False,
+            use_textline_orientation=False
+        )
+        self.ocr_backend = 'paddle'
+        self.ocr_device = ocr_device
+        logger.info(f"PaddleOCR loaded successfully on {ocr_device}")
 
         # Clear cache after loading OCR (frees up memory on other GPUs)
         if self.gpu_manager.num_gpus > 1:
@@ -567,18 +470,40 @@ class ImageBinner:
             bboxes = []
 
             if self.ocr_backend == 'paddle':
-                # PaddleOCR processing
-                result = self.ocr.ocr(str(image_path))
+                # PaddleOCR processing - using new predict() API
+                results = self.ocr.predict(input=str(image_path))
 
-                if result and result[0]:
-                    for line in result[0]:
-                        # PaddleOCR returns: [[[x1,y1], [x2,y2], [x3,y3], [x4,y4]], (text, confidence)]
-                        points = line[0]
-                        # Convert to [x1, y1, x2, y2] format (top-left, bottom-right)
-                        xs = [p[0] for p in points]
-                        ys = [p[1] for p in points]
-                        bbox = [min(xs), min(ys), max(xs), max(ys)]
-                        bboxes.append(bbox)
+                if results:
+                    for result in results:
+                        # New API returns result objects with structured data
+                        # Access the OCR results from the result object
+                        if hasattr(result, 'json') and result.json:
+                            data_json = result.json
+                            # Handle both dict and list formats
+                            if isinstance(data_json, dict):
+                                # If dict, iterate through values looking for list of items
+                                for key, value in data_json.items():
+                                    if isinstance(value, (list, tuple)):
+                                        for item in value:
+                                            if isinstance(item, dict) and 'points' in item:
+                                                # Extract bounding box points
+                                                points = item['points']
+                                                # Convert to [x1, y1, x2, y2] format (top-left, bottom-right)
+                                                xs = [p[0] for p in points]
+                                                ys = [p[1] for p in points]
+                                                bbox = [min(xs), min(ys), max(xs), max(ys)]
+                                                bboxes.append(bbox)
+                            elif isinstance(data_json, (list, tuple)):
+                                # If list, directly iterate through items
+                                for item in data_json:
+                                    if isinstance(item, dict) and 'points' in item:
+                                        # Extract bounding box points
+                                        points = item['points']
+                                        # Convert to [x1, y1, x2, y2] format (top-left, bottom-right)
+                                        xs = [p[0] for p in points]
+                                        ys = [p[1] for p in points]
+                                        bbox = [min(xs), min(ys), max(xs), max(ys)]
+                                        bboxes.append(bbox)
 
             else:  # deepseek backend
                 # Use grounding mode to detect text regions

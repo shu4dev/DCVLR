@@ -2,10 +2,10 @@
 
 ## Overview
 
-The pipeline supports two OCR backends with automatic fallback:
+The pipeline supports two OCR backends that are automatically selected based on the pipeline mode:
 
-1. **DeepSeek-OCR** - Primary (high accuracy, high memory)
-2. **PaddleOCR** - Fallback (good accuracy, low memory)
+1. **PaddleOCR** - Used in `hybrid` mode (good accuracy, low memory)
+2. **DeepSeek-OCR** - Used in `deepseek_unified` mode (high accuracy, high memory)
 
 ## How It Works
 
@@ -17,8 +17,8 @@ pip install -r requirements.txt
 ```
 
 This installs:
-- `deep-ocr` - DeepSeek-OCR (~10GB VRAM when loaded)
 - `paddleocr` + `paddlepaddle-gpu` - PaddleOCR (~200MB VRAM when loaded)
+- `deep-ocr` - DeepSeek-OCR (~10GB VRAM when loaded)
 
 ### Configuration
 
@@ -26,33 +26,42 @@ In `configs/default_config.yaml`:
 
 ```yaml
 binning:
-  use_paddle_ocr: true  # or false
+  pipeline_mode: 'hybrid'  # or 'deepseek_unified'
 ```
 
-### Behavior by Configuration
+### Behavior by Pipeline Mode
 
-| Config | Primary | Fallback | When Fallback Triggers |
-|--------|---------|----------|------------------------|
-| `use_paddle_ocr: true` | PaddleOCR | None | Never (PaddleOCR always works) |
-| `use_paddle_ocr: false` | DeepSeek-OCR | PaddleOCR | If DeepSeek OOM or fails |
+| Pipeline Mode | OCR Backend | VRAM Usage | Object Detection | Captioning |
+|---------------|-------------|------------|------------------|------------|
+| `hybrid` | PaddleOCR | ~200MB | YOLO/SAM | BLIP/BLIP-2/Moondream |
+| `deepseek_unified` | DeepSeek-OCR | ~10GB | DeepSeek-OCR | DeepSeek-OCR |
 
-## Automatic Fallback Logic
+## Automatic Backend Selection
 
-When `use_paddle_ocr: false`:
-
-```
-1. Try to load DeepSeek-OCR
-   ├─ Success → Use DeepSeek-OCR ✓
-   └─ Failure (OOM) → Clear GPU cache
-                    → Load PaddleOCR instead ✓
-```
-
-The fallback is **automatic** and **transparent** - you'll see log messages:
+The OCR backend is automatically selected based on `pipeline_mode`:
 
 ```
-✗ DeepSeek-OCR failed to load: CUDA out of memory...
-→ Falling back to PaddleOCR...
-✓ PaddleOCR loaded successfully on cuda:0 (fallback mode)
+pipeline_mode: 'hybrid'
+   └─ Uses PaddleOCR (lightweight, ~200MB) ✓
+
+pipeline_mode: 'deepseek_unified'
+   └─ Uses DeepSeek-OCR (heavy, ~10GB) ✓
+```
+
+This is **automatic** - no separate OCR configuration needed. You'll see log messages:
+
+**Hybrid mode:**
+```
+Setting up HYBRID pipeline (PaddleOCR + YOLO/SAM + BLIP/BLIP2/Moondream)
+Loading PaddleOCR on cuda:0...
+PaddleOCR loaded successfully on cuda:0
+```
+
+**DeepSeek unified mode:**
+```
+Setting up DEEPSEEK UNIFIED pipeline (DeepSeek-OCR for OCR + Object Detection + Captioning)
+Loading DeepSeek-OCR on cuda:0 for unified pipeline...
+✓ DeepSeek-OCR loaded successfully on cuda:0 (size: tiny)
 ```
 
 ## Recommended Configurations
@@ -62,25 +71,26 @@ The fallback is **automatic** and **transparent** - you'll see log messages:
 **Recommended:**
 ```yaml
 binning:
-  use_paddle_ocr: true  # Direct use, no fallback needed
+  pipeline_mode: 'hybrid'  # Uses PaddleOCR automatically
 ```
 
 **Result:** ~3GB total VRAM usage, plenty of headroom
 
-**Alternative (if you want to try DeepSeek first):**
+**High Accuracy Option (not recommended for single 2080 Ti):**
 ```yaml
 binning:
-  use_paddle_ocr: false  # Will auto-fallback to PaddleOCR on OOM
+  pipeline_mode: 'deepseek_unified'  # May run out of memory
+  deepseek_model_size: 'tiny'
 ```
 
-**Result:** DeepSeek fails → Auto-fallback to PaddleOCR (~3GB)
+**Result:** ~10GB VRAM for DeepSeek-OCR alone (tight fit on 10.57GB GPU)
 
 ### Two RTX 2080 Ti (2x 10.57 GB VRAM)
 
-**Option 1 - Safe (Recommended):**
+**Option 1 - Fast & Efficient (Recommended):**
 ```yaml
 binning:
-  use_paddle_ocr: true
+  pipeline_mode: 'hybrid'
   enable_multi_gpu: true
 ```
 
@@ -91,34 +101,29 @@ binning:
 **Option 2 - High Accuracy:**
 ```yaml
 binning:
-  use_paddle_ocr: false
+  pipeline_mode: 'deepseek_unified'
   deepseek_model_size: 'tiny'
   enable_multi_gpu: true
 ```
 
-**Distribution (if DeepSeek loads successfully):**
-- GPU 0: DeepSeek-OCR (~10 GB)
-- GPU 1: YOLO + CLIP + BLIP (~3 GB)
-
-**Distribution (if DeepSeek fails, auto-fallback):**
-- GPU 0: PaddleOCR + YOLO (~1.5 GB)
-- GPU 1: CLIP + BLIP (~2.5 GB)
+**Distribution:**
+- GPU 0: DeepSeek-OCR (~10 GB for all tasks)
+- GPU 1: (unused in unified mode, all models on GPU 0)
 
 ### Three+ GPUs
 
-With 3+ GPUs, you can comfortably use DeepSeek:
+With 3+ GPUs, you can comfortably use DeepSeek unified mode:
 
 ```yaml
 binning:
-  use_paddle_ocr: false
+  pipeline_mode: 'deepseek_unified'
   deepseek_model_size: 'base'  # Can use larger model!
   enable_multi_gpu: true
 ```
 
 **Distribution:**
 - GPU 0: DeepSeek-OCR (~20 GB for 'base' model)
-- GPU 1: YOLO (~0.5 GB)
-- GPU 2: CLIP + BLIP (~3 GB)
+- GPU 1+: (unused in unified mode)
 
 ## Accuracy Comparison
 
@@ -131,28 +136,38 @@ binning:
 
 ## Error Handling
 
-### If Both Backends Fail
+### If PaddleOCR Fails in Hybrid Mode
 
 You'll see:
 ```
-ImportError: DeepSeek-OCR failed and PaddleOCR not available.
-Install PaddleOCR with: pip install paddleocr paddlepaddle-gpu
+ImportError: PaddleOCR not installed. Install with: pip install paddleocr paddlepaddle-gpu
 ```
 
 **Solution:**
 ```bash
-pip install paddleocr paddlepaddle-gpu
-```
-
-### If PaddleOCR Fails (Rare)
-
-Usually means missing dependencies:
-```bash
 # For GPU
-pip install paddlepaddle-gpu
+pip install paddleocr paddlepaddle-gpu
 
 # For CPU-only
-pip install paddlepaddle
+pip install paddleocr paddlepaddle
+```
+
+### If DeepSeek-OCR Fails in Unified Mode
+
+You'll see:
+```
+ImportError: DeepSeek-OCR not available. Install with: pip install transformers==4.46.3
+```
+
+**Solution:**
+```bash
+pip install transformers==4.46.3
+```
+
+Or switch to hybrid mode:
+```yaml
+binning:
+  pipeline_mode: 'hybrid'  # Uses PaddleOCR instead
 ```
 
 ## Testing Your Setup
@@ -178,16 +193,17 @@ python pipeline_demo.py
 ```
 
 Watch the logs for:
-- `✓ DeepSeek-OCR loaded successfully` - DeepSeek working
+- `Setting up HYBRID pipeline (PaddleOCR + ...)` - Hybrid mode using PaddleOCR
+- `Setting up DEEPSEEK UNIFIED pipeline (...)` - Unified mode using DeepSeek-OCR
 - `✓ PaddleOCR loaded successfully` - PaddleOCR working
-- `→ Falling back to PaddleOCR...` - Auto-fallback triggered
+- `✓ DeepSeek-OCR loaded successfully` - DeepSeek working
 
 ## Summary
 
-✅ **Both backends installed** - Maximum flexibility
-✅ **Automatic fallback** - DeepSeek fails → PaddleOCR takes over
-✅ **Configuration control** - Choose primary via config
-✅ **Multi-GPU aware** - Distributes load automatically
+✅ **Automatic backend selection** - OCR backend chosen based on `pipeline_mode`
+✅ **Simple configuration** - Just set `pipeline_mode`, no separate OCR config needed
+✅ **Clear separation** - Hybrid mode = PaddleOCR, DeepSeek unified mode = DeepSeek-OCR
+✅ **Multi-GPU aware** - Distributes load automatically in hybrid mode
 ✅ **Production ready** - Handles all error cases
 
-**For your RTX 2080 Ti setup:** Use `use_paddle_ocr: true` for best results!
+**For your RTX 2080 Ti setup:** Use `pipeline_mode: 'hybrid'` for best results!

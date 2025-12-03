@@ -42,13 +42,10 @@ binning:
   #   - deepseek_unified mode: pip install transformers==4.46.3
   #
   pipeline_mode: 'hybrid'       # Options: 'hybrid' or 'deepseek_unified'
+                                # hybrid mode automatically uses PaddleOCR (lightweight, ~200MB)
+                                # deepseek_unified mode uses DeepSeek-OCR for all tasks (heavy, ~10GB)
 
-  # OCR Backend Selection (only used in 'hybrid' mode)
-  use_paddle_ocr: false          # true = PaddleOCR (lightweight, ~200MB), false = DeepSeek-OCR (heavy, ~10GB)
-                                # If use_paddle_ocr: false and DeepSeek fails (OOM), automatically falls back to PaddleOCR
-                                # Recommended: Set to true for systems with limited VRAM (e.g., single RTX 2080 Ti)
-
-  # DeepSeek-OCR model settings (used in 'deepseek_unified' mode or when use_paddle_ocr: false in 'hybrid' mode)
+  # DeepSeek-OCR model settings (only used in 'deepseek_unified' mode)
   deepseek_model_size: 'tiny'   # Model size: 'tiny', 'small', 'base', 'large' (tiny uses least memory)
 
   # Multi-GPU settings

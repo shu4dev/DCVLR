@@ -168,27 +168,32 @@ The pipeline supports three captioning backends for generating image description
 
 Get your Moondream API key at [moondream.ai](https://moondream.ai). See [MOONDREAM_INTEGRATION.md](MOONDREAM_INTEGRATION.md) for detailed setup instructions.
 
-### OCR Backend Selection: DeepSeek-OCR vs PaddleOCR
+### OCR Backend Selection: PaddleOCR vs DeepSeek-OCR
 
-The pipeline supports two OCR backends for text detection:
+The pipeline supports two OCR backends for text detection based on the pipeline mode:
 
-#### DeepSeek-OCR - Default (with automatic fallback)
-- **Pros**: High accuracy, better at complex layouts and multi-language text
-- **Cons**: Heavy (~10GB VRAM), slower
-- **Best for**: High-quality text extraction, research
-- **Configuration**: Automatically used if available, falls back to PaddleOCR on OOM
-
-#### PaddleOCR - Fallback
+#### Hybrid Mode - PaddleOCR (Default)
+- **Automatically uses PaddleOCR** when `pipeline_mode: 'hybrid'`
 - **Pros**: Lightweight (~200MB VRAM), fast, good accuracy
-- **Cons**: May struggle with complex layouts
 - **Best for**: Production, limited GPU memory, speed-critical pipelines
 - **Configuration**:
   ```yaml
   binning:
-    use_paddle_ocr: true  # Force PaddleOCR instead of DeepSeek
+    pipeline_mode: 'hybrid'  # Automatically uses PaddleOCR
   ```
 
-**Automatic fallback**: The pipeline tries DeepSeek-OCR first. If it fails due to OOM or isn't installed, it automatically falls back to PaddleOCR.
+#### DeepSeek Unified Mode - DeepSeek-OCR
+- **Automatically uses DeepSeek-OCR** when `pipeline_mode: 'deepseek_unified'`
+- **Pros**: High accuracy, better at complex layouts and multi-language text
+- **Cons**: Heavy (~10GB VRAM), slower
+- **Best for**: High-quality text extraction, research
+- **Configuration**:
+  ```yaml
+  binning:
+    pipeline_mode: 'deepseek_unified'  # Uses DeepSeek-OCR for all tasks
+  ```
+
+**Pipeline Mode Behavior**: The OCR backend is now automatically selected based on `pipeline_mode` - no separate OCR configuration needed.
 
 ### Multi-GPU Support
 
@@ -565,8 +570,8 @@ This verifies that images are in the correct `dataset/train/` structure.
 ### "Out of memory (OOM)"
 1. **Use caption-only mode**: `use_full_features: false` (saves 80% VRAM)
 2. **Use Moondream API**: `captioner_backend: 'moondream'` (no local VRAM needed)
-3. Enable multi-GPU in config: `enable_multi_gpu: true`
-4. Force PaddleOCR instead of DeepSeek: `use_paddle_ocr: true`
+3. **Use hybrid mode**: `pipeline_mode: 'hybrid'` (uses lightweight PaddleOCR)
+4. Enable multi-GPU in config: `enable_multi_gpu: true`
 5. Use smaller YOLO model: `yolo_model: 'yolov8n'`
 6. Reduce batch sizes in config
 
