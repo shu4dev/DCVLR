@@ -105,61 +105,29 @@ Copy the file, tweak the values, and pass the new path through `--config` (CLI) 
 
 The binning stage uses object detection to categorize images into Bin B (Object/Spatial). You can choose between two object detection backends:
 
-#### YOLO (You Only Look Once) - Default
-- **Pros**: Fast, lightweight, provides object class labels (person, car, dog, etc.)
-- **Cons**: May miss unusual or unlabeled objects
-- **Best for**: Production use, speed-critical pipelines, when you need object type information
-- **Configuration**:
   ```yaml
   binning:
     object_detector: 'yolo'
     yolo_model: 'yolov8n'  # Options: yolov8n (fastest), yolov8s, yolov9s, yolov10s, yolov11s
   ```
 
-#### SAM (Segment Anything Model)
-- **Pros**: Finds all objects/regions regardless of type, more thorough detection
-- **Cons**: Slower, requires more memory, no object classification (estimates unique classes by mask diversity)
-- **Best for**: When you need comprehensive object detection, research experiments
-- **Requirements**: Install SAM separately: `pip install segment-anything`
-- **Configuration**:
-  ```yaml
-  binning:
-    object_detector: 'sam'
-    sam_model_type: 'vit_b'  # Options: vit_b (375MB), vit_l (1.2GB), vit_h (2.4GB)
-    sam_checkpoint: 'models/sam_vit_b_01ec64.pth'  # Download from Meta AI
-  ```
-
-**Fallback behavior**: If SAM fails to load (not installed or checkpoint missing), the pipeline automatically falls back to YOLO.
-
 ### Captioning Backend Selection: BLIP vs BLIP-2 vs Moondream
 
 The pipeline supports three captioning backends for generating image descriptions:
 
 #### BLIP (Default)
-- **Pros**: Fast (~0.5s/image), lightweight (~1GB VRAM), good quality
-- **Cons**: Lower quality than BLIP-2 or Moondream
-- **Best for**: Quick processing, limited GPU memory, standard quality needs
-- **Configuration**:
   ```yaml
   binning:
     captioner_backend: 'blip'
   ```
 
 #### BLIP-2
-- **Pros**: Excellent quality, runs locally, no API costs
-- **Cons**: Heavy (~10GB VRAM), slower (~1.0s/image)
-- **Best for**: High-quality captions, sufficient GPU memory, offline processing
-- **Configuration**:
   ```yaml
   binning:
     captioner_backend: 'blip2'
   ```
 
 #### Moondream API
-- **Pros**: Excellent quality, no GPU needed, fast (~0.3s/image), cloud-based
-- **Cons**: Requires API key, costs ~$0.002 per image, needs internet
-- **Best for**: Limited GPU memory, large-scale processing, cloud workflows
-- **Configuration**:
   ```yaml
   binning:
     captioner_backend: 'moondream'

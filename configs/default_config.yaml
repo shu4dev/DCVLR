@@ -14,7 +14,7 @@ binning:
   text_area_threshold: 0.2      # Min text area ratio for Bin A
   object_count_threshold: 2     # Min objects for Bin B (Object/Spatial)
   unique_objects_threshold: 1   # Min unique object types for Bin B
-  clip_similarity_threshold: 0.3  # Min CLIP similarity for Bin C validation
+  clip_similarity_threshold: 0.35  # Min CLIP similarity for Bin C validation
   spatial_dispersion_threshold: 0.3  # Spatial dispersion threshold for complexity filtering
 
   # PIPELINE MODE SELECTION

@@ -145,6 +145,7 @@ cython_debug/
 
 # Data directories
 data/
+data_tmp/
 datasets/
 output/
 outputs/
