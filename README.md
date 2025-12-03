@@ -1,21 +1,19 @@
-# Team-1 Data Synthesis Pipeline
+# Data Synthesis Pipeline
 
-Implementation of the Team-1 reasoning-focused data synthesis workflow (see `Implmentation.pdf`). The pipeline curates raw images, synthesizes question/answer/reasoning triples with a large language model, and validates the generations to produce high-quality vision-language datasets.
-
-> **🚀 NEW Features:**
-> - Automatic crash recovery! The pipeline now automatically resumes from the last completed stage if interrupted. [Learn more ↓](#-automatic-resume-behavior)
-> - Detailed binning display! See how each image performs against all 3 bin criteria plus custom user criteria. [Learn more →](docs/DETAILED_BINNING_GUIDE.md)
+Implementation of reasoning-focused data synthesis workflow. The pipeline curates raw images, synthesizes question/answer/reasoning triples with a large language model, and validates the generations to produce high-quality vision-language datasets.
 
 ## Highlights
-- **End-to-end pipeline** – filtering, binning, synthesis, and validation live in a single orchestrator (`team1_pipeline.py`).
-- **Modular stages** – swap filtering, LLM, or validation components by editing `configs/default_config.yaml`.
-- **Flexible captioning** – Choose between BLIP, BLIP-2, or Moondream API for image captions.
-- **Feature extraction modes** – Full features (OCR+objects+captions) or caption-only for 70% faster processing.
-- **Detailed binning analysis** – Display how each image scores against Text/Object/Commonsense criteria with custom filters.
-- **Intermediate saves** – Automatically saves results after each stage for debugging and recovery.
-- **Automatic resume** – Detects interrupted runs and resumes from the last completed stage automatically.
-- **Scriptable + importable** – run via `scripts/run_pipeline.py` or embed with the `DataSynthesisPipeline` class.
-- **Reproducible config** – every stage is parameterized by YAML and persisted along with outputs/logs.
+- **End-to-end pipeline** – filtering, binning, synthesis, and validation in a single orchestrator
+- **Modular stages** – swap filtering, LLM, or validation components by editing `configs/default_config.yaml`
+- **Multi-GPU optimization** – optimized pipeline for 2-4x speedup on multi-GPU systems
+- **Flexible captioning** – choose between BLIP, BLIP-2, or Moondream API for image captions
+- **Dual OCR backends** – PaddleOCR (lightweight) or DeepSeek-OCR (high accuracy)
+- **Feature extraction modes** – full features (OCR+objects+captions) or caption-only for 70% faster processing
+- **Detailed binning analysis** – view how each image scores against all bin criteria with custom filters
+- **Intermediate saves** – automatically saves results after each stage for debugging and recovery
+- **Automatic resume** – detects interrupted runs and resumes from the last completed stage
+- **Scriptable + importable** – run via CLI or embed with the `DataSynthesisPipeline` class
+- **Reproducible config** – every stage is parameterized by YAML and persisted with outputs/logs
 
 ## Repository Layout
 ```
@@ -157,7 +155,7 @@ The pipeline supports three captioning backends for generating image description
     captioner_backend: 'blip2'
   ```
 
-#### Moondream API (New!)
+#### Moondream API
 - **Pros**: Excellent quality, no GPU needed, fast (~0.3s/image), cloud-based
 - **Cons**: Requires API key, costs ~$0.002 per image, needs internet
 - **Best for**: Limited GPU memory, large-scale processing, cloud workflows
@@ -169,118 +167,52 @@ The pipeline supports three captioning backends for generating image description
     moondream_caption_length: 'normal'  # 'short', 'normal', or 'long'
   ```
 
-Get your Moondream API key at [moondream.ai](https://moondream.ai). See [MOONDREAM_INTEGRATION.md](MOONDREAM_INTEGRATION.md) for detailed setup instructions.
+### Detailed Binning Analysis
+
+View how each image performs against all bin criteria plus custom user-defined criteria:
+
+```python
+from src.filtering.binning import ImageBinner
+
+binner = ImageBinner(config)
+
+# Get detailed results
+details = binner.categorize_image("image.jpg", return_details=True)
+binner.display_image_results(details)
+
+# Add custom criteria
+def complex_scene(details):
+    objects = details['bin_b_criteria']['num_objects']
+    return objects > 10
+
+user_criteria = {'Complex Scene': complex_scene}
+binner.display_image_results(details, user_criteria=user_criteria)
+```
+
+Example output shows how the image performs against:
+- Bin A criteria (text boxes, text area ratio)
+- Bin B criteria (object count, unique classes, spatial dispersion)
+- Bin C criteria (caption, CLIP similarity)
+- Custom user-defined criteria
+
 
 ### OCR Backend Selection: PaddleOCR vs DeepSeek-OCR
 
 The pipeline supports two OCR backends for text detection based on the pipeline mode:
 
 #### Hybrid Mode - PaddleOCR (Default)
-- **Automatically uses PaddleOCR** when `pipeline_mode: 'hybrid'`
-- **Pros**: Lightweight (~200MB VRAM), fast, good accuracy
-- **Best for**: Production, limited GPU memory, speed-critical pipelines
-- **Configuration**:
+
+
   ```yaml
   binning:
     pipeline_mode: 'hybrid'  # Automatically uses PaddleOCR
   ```
 
 #### DeepSeek Unified Mode - DeepSeek-OCR
-- **Automatically uses DeepSeek-OCR** when `pipeline_mode: 'deepseek_unified'`
-- **Pros**: High accuracy, better at complex layouts and multi-language text
-- **Cons**: Heavy (~10GB VRAM), slower
-- **Best for**: High-quality text extraction, research
-- **Configuration**:
   ```yaml
   binning:
     pipeline_mode: 'deepseek_unified'  # Uses DeepSeek-OCR for all tasks
   ```
-
-**Pipeline Mode Behavior**: The OCR backend is now automatically selected based on `pipeline_mode` - no separate OCR configuration needed.
-
-### Multi-GPU Support
-
-The pipeline automatically detects and uses multiple GPUs when available:
-
-```yaml
-binning:
-  enable_multi_gpu: true  # Default: true (auto-detect)
-```
-
-**Model distribution across GPUs**:
-- GPU 0: OCR (DeepSeek or PaddleOCR)
-- GPU 1: Object Detection (YOLO or SAM)
-- GPU 2: CLIP (similarity)
-- GPU 3: BLIP (captioning)
-
-If fewer GPUs are available, models are distributed optimally. Single GPU mode is automatic when only one GPU is detected.
-
-## Key Configuration Options
-
-### Feature Extraction Mode (Q/A Synthesis)
-
-Control how much visual information is extracted for Q/A generation:
-
-```yaml
-synthesis:
-  use_full_features: true  # Options: true or false
-```
-
-| Mode | What's Extracted | Processing Speed | Memory | Best For |
-|------|-----------------|------------------|--------|----------|
-| **true** (Full) | OCR + objects + spatial relations + captions | Slower (~1.6s/image) | 5-10GB | Documents, charts, technical images |
-| **false** (Caption-only) | Captions only | **70% faster** (~0.5s/image) | 1-2GB | Photos, simple scenes, large batches |
-
-**Example Q/A outputs:**
-
-*Full features:* "What is the revenue shown in the 2023 report?" → "$100M" (uses OCR text)
-
-*Caption-only:* "What type of information is displayed?" → "Sales data" (uses caption only)
-
-See [FEATURE_EXTRACTION_MODES.md](FEATURE_EXTRACTION_MODES.md) for detailed comparison.
-
-### Intermediate Results Saving & Automatic Resume
-
-**Save intermediate results** after each stage for debugging and recovery:
-
-```yaml
-output:
-  save_intermediate: true  # Default: true (enables automatic resume)
-```
-
-**When enabled**, creates `output/intermediate/` with:
-- `stage1_filtering/` - Filtered image lists and statistics
-- `stage2_binning/` - Images by bin with distribution stats
-- `stage3_synthesis/` - Generated Q/A pairs before validation
-- `stage4_validation/` - Validated Q/A pairs with removal rates
-
-#### 🔄 Automatic Resume Behavior
-
-The pipeline **automatically resumes** from the last completed stage:
-
-| Scenario | What Happens |
-|----------|-------------|
-| **Pipeline crashes after Stage 2** | Rerun → Skips Stages 1-2, continues from Stage 3 |
-| **Pipeline already complete** | Rerun → Returns cached results instantly |
-| **No intermediate results** | Rerun → Starts from Stage 1 (normal behavior) |
-| **Modify config and rerun** | Resume from last stage, apply new settings going forward |
-
-**To force restart from scratch:**
-```bash
-# Option 1: Delete intermediate results
-rm -rf output/intermediate/
-
-# Option 2: Use a new output directory
-python scripts/run_pipeline.py --images-dir ./data --output-dir ./output_fresh
-```
-
-**Benefits:**
-- ✅ **Crash recovery** - Never lose hours of computation
-- ✅ **Iterative development** - Modify later stages without reprocessing
-- ✅ **Debug friendly** - Inspect intermediate results at each stage
-- ✅ **Zero configuration** - Works automatically, no flags needed
-
-See [RESUME_FEATURE.md](RESUME_FEATURE.md) for detailed examples and [INTERMEDIATE_SAVES_FEATURE.md](INTERMEDIATE_SAVES_FEATURE.md) for file format details.
 
 ## Data Structure
 
@@ -311,13 +243,6 @@ data/
 **Exporting datasets from Hugging Face**:
 ```bash
 python scripts/export_images.py
-```
-
-This automatically downloads and organizes datasets into the correct structure.
-
-**Testing your data structure**:
-```bash
-python test_train_folders_simple.py --data-dir ./data
 ```
 
 This verifies that your data is organized correctly and shows how many images were found in each dataset.
@@ -399,8 +324,23 @@ print(results["filtered_count"], "images survived filtering")
 ```
 Each stage (`filter_stage`, `bin_stage`, `synthesis_stage`, `validation_stage`) can be called individually for experiments or notebooks.
 
-### 3. Notebook Demo
-`notebooks/pipeline_demo.ipynb` mirrors the CLI flow but also visualizes intermediate artifacts (bin distribution, example Q/A pairs, reasoning lengths). After installing the optional notebook extras, open it with Jupyter and update the `images_dir` cell.
+### 3. Optimized Pipeline (Multi-GPU)
+
+For systems with multiple GPUs and sufficient VRAM, use the optimized pipeline:
+
+```bash
+python scripts/run_pipeline_optimized.py --images-dir ./data --num-images 100
+```
+
+**Performance improvements:**
+- 2 GPUs: ~2.3x faster
+- 4 GPUs: ~4.3x faster
+
+The optimized pipeline uses:
+- **Batched filtering** (5x faster Stage 1)
+- **Multi-GPU parallelism** (2x faster Stage 2)
+
+See [docs/QUICK_START_OPTIMIZED.md](docs/QUICK_START_OPTIMIZED.md) for details.
 
 ## Outputs
 Running the pipeline creates an output directory (default `output/`) containing:
@@ -431,18 +371,6 @@ output/
         └── summary.json             # Stage 4 statistics
 ```
 
-### synthetic_qa_dataset.jsonl
-Newline-delimited JSON records, one per line:
-```json
-{
-  "image": "/absolute/path/to/image.jpg",
-  "bin": "A",
-  "question": "What is the value shown in 2020?",
-  "answer": "45",
-  "reasoning": "Looking at the chart, the blue bar for year 2020 reaches the 45 mark on the y-axis."
-}
-```
-
 ### pipeline_results.json
 Summary metrics from the pipeline run:
 ```json
@@ -460,21 +388,6 @@ Summary metrics from the pipeline run:
 
 ### pipeline.log
 Per-stage logs with timestamps, model loading info, and progress details.
-
-### intermediate/ (Optional)
-Intermediate results saved after each pipeline stage. This feature is controlled by the `save_intermediate` setting in the configuration file (default: `true`).
-
-**Benefits of intermediate saves**:
-- **Resume capability**: Restart from any stage if the pipeline crashes
-- **Stage inspection**: Debug issues by examining outputs at each stage
-- **Partial reruns**: Modify and rerun specific stages without redoing earlier work
-- **Analysis**: Study how images are distributed across bins or which Q/A pairs fail validation
-
-**To disable intermediate saves**: Set `save_intermediate: false` in `configs/default_config.yaml` under the `output` section.
-
-Each stage's `summary.json` contains statistics like counts, distributions, and removal rates.
-
-You can specify a custom output directory via `--output-dir` (CLI) or `output_dir` (Python API) to keep multiple runs organized.
 
 ## Pipeline Stages
 
@@ -507,94 +420,11 @@ Categorizes images into three bins based on visual content:
 
 Images are then balanced according to the specified ratio (default 40:40:20).
 
-### Stage 3: Q/A Synthesis
-Generates question-answer-reasoning triplets:
-
-**Feature Extraction Modes**:
-- **Full Features** (default): Extracts OCR text, objects, spatial relations, and captions for detailed Q/A pairs
-- **Caption-Only**: Uses only image captions for faster, lighter processing (70% faster, 80% less VRAM)
-
-Configure in `configs/default_config.yaml`:
-```yaml
-synthesis:
-  use_full_features: true  # false for caption-only mode
-```
-
-See [FEATURE_EXTRACTION_MODES.md](FEATURE_EXTRACTION_MODES.md) for detailed comparison and use cases.
-
-**Q/A Generation**:
-- Uses LLM with bin-specific prompts (or caption-only prompts) to generate contextual questions
-- Creates detailed reasoning chains grounded in image content
-- Different question types per bin (text comprehension, spatial reasoning, commonsense)
-
-### Stage 4: Validation
-Quality control for generated Q/A pairs:
-- Format validation (required fields, proper structure)
-- Source grounding (answers relate to image content)
-- Quality checks (clarity, completeness, logic)
-- Deduplication (removes duplicate Q/A pairs)
-
-## Performance
-
-Estimated processing time for 10,000 images on a single RTX 3090 GPU:
-- **Filtering**: 1-2 hours
-- **Binning**: 3-4 hours (OCR + YOLO + BLIP inference)
-- **Synthesis**: 2-3 hours (if LLM generation enabled)
-- **Validation**: 30 minutes
-- **Total**: ~6-9 hours
-
-Multi-GPU setup can reduce total time by 40-60%.
-
-## Additional Documentation
-
-### Core Documentation
-- [configs/default_config.yaml](configs/default_config.yaml) - Full configuration options with detailed comments
-- [DATA_STRUCTURE.md](DATA_STRUCTURE.md) - Complete guide to data organization
-- [PIPELINE_DETAILED_BREAKDOWN.md](PIPELINE_DETAILED_BREAKDOWN.md) - In-depth stage-by-stage breakdown with examples
-- [PIPELINE_FLOW.md](PIPELINE_FLOW.md) - Visual flow diagrams
-
-### Feature Guides
-- [MOONDREAM_INTEGRATION.md](MOONDREAM_INTEGRATION.md) - Complete guide to Moondream API captioning
-- [MOONDREAM_QUICK_START.md](MOONDREAM_QUICK_START.md) - 3-step Moondream setup
-- [FEATURE_EXTRACTION_MODES.md](FEATURE_EXTRACTION_MODES.md) - Full vs caption-only feature extraction
-- [FEATURE_MODES_QUICK_GUIDE.md](FEATURE_MODES_QUICK_GUIDE.md) - Quick reference for feature modes
-- [INTERMEDIATE_SAVES_FEATURE.md](INTERMEDIATE_SAVES_FEATURE.md) - Intermediate results saving guide
-
-## Troubleshooting
-
-### "No images found"
-Check your data structure. Run:
-```bash
-python test_train_folders_simple.py --data-dir ./data
-```
-
-This verifies that images are in the correct `dataset/train/` structure.
-
-### "Out of memory (OOM)"
-1. **Use caption-only mode**: `use_full_features: false` (saves 80% VRAM)
-2. **Use Moondream API**: `captioner_backend: 'moondream'` (no local VRAM needed)
-3. **Use hybrid mode**: `pipeline_mode: 'hybrid'` (uses lightweight PaddleOCR)
-4. Enable multi-GPU in config: `enable_multi_gpu: true`
-5. Use smaller YOLO model: `yolo_model: 'yolov8n'`
-6. Reduce batch sizes in config
-
-### "Low quality Q/A pairs"
-1. **Try full features mode**: `use_full_features: true` for more detailed Q/A
-2. **Try better captioning**: `captioner_backend: 'blip2'` or `'moondream'`
-3. Review feature extraction quality (OCR, object detection working correctly?)
-4. Check LLM prompts and generation parameters
-5. Adjust validation thresholds in config
-6. Ensure images are properly categorized into bins
-
-### "Models not loading"
-1. Check all dependencies are installed: `pip install -r requirements.txt`
-2. For SAM, install separately: `pip install segment-anything`
-3. Download SAM checkpoint if using SAM object detection
-4. Check CUDA availability: `python -c "import torch; print(torch.cuda.is_available())"`
+**Detailed Binning Analysis**: View how each image performs against all bin criteria plus custom user-defined criteria. See [docs/DETAILED_BINNING_GUIDE.md](docs/DETAILED_BINNING_GUIDE.md) for details.
 
 ## Quick Start
 
-Here's a complete workflow from setup to running the pipeline:
+### Standard Pipeline (Single GPU)
 
 ```bash
 # 1. Clone and install
@@ -622,6 +452,25 @@ ls output/
 cat output/synthetic_qa_dataset.jsonl | head -5
 ```
 
+### Optimized Pipeline (Multi-GPU)
+
+For systems with 2+ GPUs:
+
+```bash
+# Steps 1-3 same as above
+
+# 4. Run optimized pipeline (2-4x faster!)
+python scripts/run_pipeline_optimized.py \
+  --images-dir ./data \
+  --num-images 100
+
+# Automatically enables:
+# - Batched filtering (5x faster)
+# - Multi-GPU parallelism (2x faster)
+```
+
+See [docs/QUICK_START_OPTIMIZED.md](docs/QUICK_START_OPTIMIZED.md) for details.
+
 ## Example Datasets
 
 The pipeline works with any image dataset. Here are some examples:
@@ -639,34 +488,3 @@ The pipeline works with any image dataset. Here are some examples:
 1. Create folder: `mkdir -p data/my_custom_dataset/train`
 2. Add images: Copy `.jpg`, `.png`, etc. to the `train/` folder
 3. Run pipeline: `python scripts/run_pipeline.py --images-dir ./data`
-
-## License
-
-See LICENSE file for details.
-
-## Citation
-
-If you use this pipeline in your research, please cite:
-```bibtex
-@software{dcvlr_pipeline,
-  title={DCVLR: Data Curation for Vision-Language Reasoning},
-  author={Team-1},
-  year={2024},
-  url={https://github.com/shu4dev/DCVLR}
-}
-```
-
-## Contributing
-
-Contributions are welcome! Please:
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Submit a pull request
-
-## Support
-
-For issues, questions, or suggestions:
-- Open an issue on GitHub
-- Check existing documentation in the `docs/` folder
-- Review the detailed breakdowns in `PIPELINE_DETAILED_BREAKDOWN.md`
