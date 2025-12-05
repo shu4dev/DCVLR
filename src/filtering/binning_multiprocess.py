@@ -6,7 +6,7 @@ When GPU memory is sufficient, this provides near-linear speedup across GPUs.
 import logging
 import torch
 import torch.multiprocessing as mp
-from typing import Dict, List
+from typing import Dict, List, Optional, Tuple
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
@@ -112,7 +112,9 @@ class MultiProcessImageBinner:
         self,
         images: List[Dict],
         display_details: bool = False,
-        user_criteria: Dict = None
+        user_criteria: Dict = None,
+        dataset_size: Optional[int] = None,
+        bin_ratios: Tuple[float, float, float] = (0.4, 0.4, 0.2)
     ) -> Dict[str, List[Dict]]:
         """
         Bin images using multiple GPUs in parallel.
@@ -121,6 +123,8 @@ class MultiProcessImageBinner:
             images: List of image dictionaries with 'path' key
             display_details: If True, display detailed results (only works with single GPU)
             user_criteria: Optional user-defined criteria (not used in multi-process mode)
+            dataset_size: Target total dataset size (if None, uses all images)
+            bin_ratios: Tuple of (bin_a_ratio, bin_b_ratio, bin_c_ratio) for distribution
 
         Returns:
             Dictionary with bin categories as keys and image lists as values
@@ -130,7 +134,7 @@ class MultiProcessImageBinner:
             logger.info("Using single-process mode (insufficient parallelism benefit)")
             from src.filtering.binning import ImageBinner
             binner = ImageBinner(self.config)
-            return binner.bin_images(images, display_details, user_criteria)
+            return binner.bin_images(images, display_details, user_criteria, dataset_size, bin_ratios)
 
         logger.info(f"Starting multi-process binning:")
         logger.info(f"  Total images: {len(images)}")

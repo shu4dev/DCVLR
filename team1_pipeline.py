@@ -11,6 +11,7 @@ from typing import Dict, List, Tuple, Optional, Any
 from pathlib import Path
 import yaml
 from tqdm import tqdm
+import numpy as np
 
 from src.filtering import ImageFilter, ImageBinner
 from src.synthesis import QAGenerator, FeatureExtractor
@@ -19,6 +20,24 @@ from src.utils import setup_logging
 
 # Configure logging
 logger = logging.getLogger(__name__)
+
+
+def convert_numpy_types(obj):
+    """
+    Recursively convert numpy types to native Python types for JSON serialization.
+    """
+    if isinstance(obj, np.integer):
+        return int(obj)
+    elif isinstance(obj, np.floating):
+        return float(obj)
+    elif isinstance(obj, np.ndarray):
+        return obj.tolist()
+    elif isinstance(obj, dict):
+        return {key: convert_numpy_types(value) for key, value in obj.items()}
+    elif isinstance(obj, list):
+        return [convert_numpy_types(item) for item in obj]
+    else:
+        return obj
 
 
 class DataSynthesisPipeline:
@@ -86,19 +105,23 @@ class DataSynthesisPipeline:
     def run(
         self,
         num_images: int = 1000,
-        bins_ratio: Tuple[float, float, float] = (0.4, 0.4, 0.2)
+        bins_ratio: Tuple[float, float, float] = (0.4, 0.4, 0.2),
+        dataset_size: Optional[int] = None
     ) -> Dict[str, Any]:
         """
         Run the complete pipeline end-to-end with automatic resume from intermediate results.
 
         Args:
-            num_images: Target number of images to process
+            num_images: Target number of images to filter in Stage 1
             bins_ratio: Ratio for Bin A (Text), B (Object), C (Commonsense)
+            dataset_size: Target total dataset size for binning (if None, uses all filtered images)
 
         Returns:
             Dictionary containing pipeline results and metrics
         """
-        logger.info(f"Starting pipeline with {num_images} images")
+        logger.info(f"Starting pipeline with {num_images} images to filter")
+        if dataset_size:
+            logger.info(f"Target dataset size for binning: {dataset_size}")
         logger.info("Checking for intermediate results to resume from...")
         results = {}
 
@@ -212,7 +235,7 @@ class DataSynthesisPipeline:
 
         # Stage 2: Binning
         logger.info("Stage 2: Binning images...")
-        binned_images = self.bin_stage(filtered_images, bins_ratio)
+        binned_images = self.bin_stage(filtered_images, bins_ratio, dataset_size=dataset_size)
         results['bins'] = {
             'A': len(binned_images['A']),
             'B': len(binned_images['B']),
@@ -300,10 +323,11 @@ class DataSynthesisPipeline:
         self,
         images: List[Dict],
         bins_ratio: Tuple[float, float, float],
-        filter_by_complexity: bool = False
+        filter_by_complexity: bool = False,
+        dataset_size: Optional[int] = None
     ) -> Dict[str, List[Dict]]:
         """
-        Stage 2: Categorize images into bins.
+        Stage 2: Categorize images into bins using sequential ranking-based assignment.
 
         Bins:
         - A: Text/Arithmetic (text-heavy images)
@@ -312,8 +336,9 @@ class DataSynthesisPipeline:
 
         Args:
             images: List of image dictionaries
-            bins_ratio: Ratio for (A, B, C) bins
+            bins_ratio: Ratio for (A, B, C) bins (default: 0.4, 0.4, 0.2)
             filter_by_complexity: If True, pre-filter images by visual complexity
+            dataset_size: Target total dataset size (if None, uses all images)
         """
         # Optional: Filter by complexity before binning
         if filter_by_complexity:
@@ -325,23 +350,19 @@ class DataSynthesisPipeline:
             logger.info(f"Complexity filter: {len(filtered_images)}/{len(images)} images passed")
             images = filtered_images
 
-        binned = self.image_binner.bin_images(images)
+        # Use the new sequential ranking-based binning
+        binned = self.image_binner.bin_images(
+            images,
+            display_details=False,
+            user_criteria=None,
+            dataset_size=dataset_size,
+            bin_ratios=bins_ratio
+        )
 
-        # Balance bins according to ratio
-        target_a = int(len(images) * bins_ratio[0])
-        target_b = int(len(images) * bins_ratio[1])
-        target_c = len(images) - target_a - target_b
+        logger.info(f"Binned images - A: {len(binned['A'])}, "
+                   f"B: {len(binned['B'])}, C: {len(binned['C'])}")
 
-        balanced = {
-            'A': binned['A'][:target_a],
-            'B': binned['B'][:target_b],
-            'C': binned['C'][:target_c]
-        }
-
-        logger.info(f"Binned images - A: {len(balanced['A'])}, "
-                   f"B: {len(balanced['B'])}, C: {len(balanced['C'])}")
-
-        return balanced
+        return binned
     
     def synthesis_stage(self, binned_images: Dict[str, List[Dict]]) -> List[Dict]:
         """
@@ -489,7 +510,8 @@ class DataSynthesisPipeline:
             bin_path = stage2_dir / f"bin_{bin_type}.jsonl"
             with open(bin_path, 'w') as f:
                 for img in images:
-                    f.write(json.dumps(img) + '\n')
+                    img_converted = convert_numpy_types(img)
+                    f.write(json.dumps(img_converted) + '\n')
 
         # Save all binned images together
         all_binned_path = stage2_dir / "all_binned_images.jsonl"
@@ -498,7 +520,8 @@ class DataSynthesisPipeline:
                 for img in images:
                     img_with_bin = img.copy()
                     img_with_bin['bin'] = bin_type
-                    f.write(json.dumps(img_with_bin) + '\n')
+                    img_with_bin_converted = convert_numpy_types(img_with_bin)
+                    f.write(json.dumps(img_with_bin_converted) + '\n')
 
         # Save summary statistics
         summary = {
@@ -704,6 +727,12 @@ def main():
         default='configs/default_config.yaml',
         help='Configuration file path'
     )
+    parser.add_argument(
+        '--dataset-size',
+        type=int,
+        default=None,
+        help='Target dataset size for binning (if not set, uses all filtered images)'
+    )
 
     args = parser.parse_args()
 
@@ -715,7 +744,8 @@ def main():
     )
 
     results = pipeline.run(
-        num_images=args.num_images
+        num_images=args.num_images,
+        dataset_size=args.dataset_size
     )
     
     print("\nPipeline Results:")

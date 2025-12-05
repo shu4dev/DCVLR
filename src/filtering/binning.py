@@ -475,35 +475,78 @@ class ImageBinner:
 
                 if results:
                     for result in results:
-                        # New API returns result objects with structured data
-                        # Access the OCR results from the result object
-                        if hasattr(result, 'json') and result.json:
-                            data_json = result.json
-                            # Handle both dict and list formats
-                            if isinstance(data_json, dict):
-                                # If dict, iterate through values looking for list of items
-                                for key, value in data_json.items():
-                                    if isinstance(value, (list, tuple)):
-                                        for item in value:
-                                            if isinstance(item, dict) and 'points' in item:
-                                                # Extract bounding box points
-                                                points = item['points']
-                                                # Convert to [x1, y1, x2, y2] format (top-left, bottom-right)
-                                                xs = [p[0] for p in points]
-                                                ys = [p[1] for p in points]
-                                                bbox = [min(xs), min(ys), max(xs), max(ys)]
-                                                bboxes.append(bbox)
-                            elif isinstance(data_json, (list, tuple)):
-                                # If list, directly iterate through items
-                                for item in data_json:
-                                    if isinstance(item, dict) and 'points' in item:
-                                        # Extract bounding box points
-                                        points = item['points']
-                                        # Convert to [x1, y1, x2, y2] format (top-left, bottom-right)
-                                        xs = [p[0] for p in points]
-                                        ys = [p[1] for p in points]
-                                        bbox = [min(xs), min(ys), max(xs), max(ys)]
+                        if not hasattr(result, "json") or not result.json:
+                            continue
+
+                        data_json = result.json
+
+                        # Step 1: go into the 'res' dict if present
+                        if isinstance(data_json, dict) and "res" in data_json:
+                            core = data_json["res"]
+                        else:
+                            core = data_json
+
+                        if not isinstance(core, dict):
+                            continue
+
+                        # Step 2: for some pipelines OCR is nested under 'overall_ocr_res'
+                        if "overall_ocr_res" in core and isinstance(core["overall_ocr_res"], dict):
+                            core = core["overall_ocr_res"]
+
+                        # Step 3: Try rec_boxes (preferred: [x1, y1, x2, y2])
+                        rec_boxes = core.get("rec_boxes", None)
+                        had_boxes_for_result = False
+
+                        if rec_boxes is not None:
+                            try:
+                                rec_boxes_list = rec_boxes.tolist() if hasattr(rec_boxes, "tolist") else rec_boxes
+                            except Exception:
+                                rec_boxes_list = rec_boxes
+
+                            try:
+                                _ = len(rec_boxes_list)
+                            except TypeError:
+                                rec_boxes_list = []
+
+                            for box in rec_boxes_list:
+                                # Expect each box as [x1, y1, x2, y2] or longer (we use first 4)
+                                try:
+                                    if len(box) >= 4:
+                                        x1, y1, x2, y2 = box[:4]
+                                        bbox = [float(x1), float(y1), float(x2), float(y2)]
                                         bboxes.append(bbox)
+                                        had_boxes_for_result = True
+                                except Exception:
+                                    continue
+
+                        # Step 4: if no rec_boxes for this result, fall back to dt_polys
+                        if not had_boxes_for_result:
+                            dt_polys = core.get("dt_polys", None)
+                            if dt_polys is not None:
+                                try:
+                                    polys = dt_polys.tolist() if hasattr(dt_polys, "tolist") else dt_polys
+                                except Exception:
+                                    polys = dt_polys
+
+                                try:
+                                    _ = len(polys)
+                                except TypeError:
+                                    polys = []
+
+                                for poly in polys:
+                                    try:
+                                        # poly is a list/array of [x, y] points
+                                        xs = [p[0] for p in poly]
+                                        ys = [p[1] for p in poly]
+                                        bbox = [
+                                            float(min(xs)),
+                                            float(min(ys)),
+                                            float(max(xs)),
+                                            float(max(ys)),
+                                        ]
+                                        bboxes.append(bbox)
+                                    except Exception:
+                                        continue
 
             else:  # deepseek backend
                 # Use grounding mode to detect text regions
@@ -812,6 +855,158 @@ class ImageBinner:
         else:
             return self.detect_objects_yolo(image_path)
 
+    def extract_text_content(self, image_path: str) -> str:
+        """
+        Extract the actual text content from image using OCR.
+
+        Args:
+            image_path: Path to the image file
+
+        Returns:
+            Extracted text content as a single string
+        """
+        try:
+            text_lines = []
+
+            if self.ocr_backend == 'paddle':
+                # PaddleOCR processing
+                results = self.ocr.predict(input=str(image_path))
+
+                if results:
+                    for result in results:
+                        if not hasattr(result, "json") or not result.json:
+                            continue
+
+                        data_json = result.json
+
+                        # Navigate to core data
+                        if isinstance(data_json, dict) and "res" in data_json:
+                            core = data_json["res"]
+                        else:
+                            core = data_json
+
+                        if not isinstance(core, dict):
+                            continue
+
+                        # For some pipelines OCR is nested under 'overall_ocr_res'
+                        if "overall_ocr_res" in core and isinstance(core["overall_ocr_res"], dict):
+                            core = core["overall_ocr_res"]
+
+                        # Extract text from rec_texts (not rec_text)
+                        rec_text = core.get("rec_texts", [])
+                        if rec_text is not None:
+                            try:
+                                text_list = rec_text.tolist() if hasattr(rec_text, "tolist") else rec_text
+                            except Exception:
+                                text_list = rec_text
+
+                            if isinstance(text_list, list):
+                                for text in text_list:
+                                    if isinstance(text, str) and text.strip():
+                                        text_lines.append(text.strip())
+
+            else:  # deepseek backend
+                # Use grounding mode to extract text
+                prompt = "<image>\n<|grounding|>Convert the document to markdown."
+                temp_dir = tempfile.mkdtemp(prefix='deepseek_text_')
+
+                try:
+                    result = self.ocr_model.infer(
+                        self.ocr_tokenizer,
+                        prompt=prompt,
+                        image_file=str(image_path),
+                        output_path=temp_dir,
+                        base_size=self.ocr_base_size,
+                        image_size=self.ocr_image_size,
+                        crop_mode=self.ocr_crop_mode,
+                        save_results=False,
+                        test_compress=False
+                    )
+
+                    if result and isinstance(result, str):
+                        # Extract text without bounding box coordinates
+                        # Remove patterns like [x1,y1,x2,y2]
+                        text = re.sub(r'\[\d+,\d+,\d+,\d+\]', '', result)
+                        text_lines.append(text.strip())
+                except Exception as ocr_error:
+                    logger.warning(f"DeepSeek text extraction failed for {image_path}: {ocr_error}")
+                finally:
+                    shutil.rmtree(temp_dir, ignore_errors=True)
+
+            return ' '.join(text_lines)
+
+        except Exception as e:
+            logger.error(f"Error extracting text from {image_path}: {e}")
+            return ""
+
+    def extract_detected_objects(self, image_path: str) -> list:
+        """
+        Extract the list of detected object class names from image.
+
+        Args:
+            image_path: Path to the image file
+
+        Returns:
+            List of detected object class names
+        """
+        try:
+            detected_objects = []
+
+            if self.object_detector == 'yolo':
+                # Run YOLO detection
+                results = self.yolo(str(image_path))
+
+                if results and len(results) > 0:
+                    det = results[0]
+
+                    if det.boxes is not None:
+                        # Extract class indices
+                        classes = det.boxes.cls.cpu().numpy().astype(int)
+
+                        # Convert class indices to names
+                        for cls_idx in classes:
+                            class_name = self.yolo.names.get(int(cls_idx), f"class_{cls_idx}")
+                            detected_objects.append(class_name)
+
+            elif self.object_detector == 'deepseek':
+                # Use DeepSeek grounding mode
+                prompt = "<image>\n<|grounding|>Detect all objects in this image."
+                temp_dir = tempfile.mkdtemp(prefix='deepseek_obj_ext_')
+
+                try:
+                    result = self.ocr_model.infer(
+                        self.ocr_tokenizer,
+                        prompt=prompt,
+                        image_file=str(image_path),
+                        output_path=temp_dir,
+                        base_size=self.ocr_base_size,
+                        image_size=self.ocr_image_size,
+                        crop_mode=self.ocr_crop_mode,
+                        save_results=False,
+                        test_compress=False
+                    )
+
+                    if result and isinstance(result, str):
+                        # Extract object labels from result
+                        # Pattern: object_name[x1,y1,x2,y2]
+                        pattern = r'(\w+(?:\s+\w+)*)\[\d+,\d+,\d+,\d+\]'
+                        matches = re.findall(pattern, result)
+                        detected_objects.extend(matches)
+                except Exception as e:
+                    logger.warning(f"DeepSeek object extraction failed for {image_path}: {e}")
+                finally:
+                    shutil.rmtree(temp_dir, ignore_errors=True)
+
+            else:  # SAM
+                # SAM doesn't classify objects, so return empty list
+                logger.debug(f"SAM detector doesn't provide object class names for {image_path}")
+
+            return detected_objects
+
+        except Exception as e:
+            logger.error(f"Error extracting detected objects from {image_path}: {e}")
+            return []
+
     def generate_caption_deepseek(self, image_path: str) -> str:
         """
         Generate caption for image using DeepSeek-OCR.
@@ -1104,14 +1299,24 @@ class ImageBinner:
 
         print("="*80 + "\n")
 
-    def bin_images(self, images: List[Dict], display_details: bool = False, user_criteria: Optional[Dict] = None) -> Dict[str, List[Dict]]:
+    def bin_images(self, images: List[Dict], display_details: bool = False, user_criteria: Optional[Dict] = None,
+                   dataset_size: Optional[int] = None, bin_ratios: Tuple[float, float, float] = (0.4, 0.4, 0.2)) -> Dict[str, List[Dict]]:
         """
-        Categorize multiple images into bins.
+        Categorize multiple images into bins using sequential ranking-based assignment.
+
+        Process:
+        1. Extract ALL features for every image
+        2. Assign images to bins sequentially by ranking (no overlap):
+           - Bin A: Top 40% by text_area_ratio
+           - Bin B: Top 40% by num_objects (from remaining images)
+           - Bin C: Top 20% by similarity (from remaining images)
 
         Args:
             images: List of image dictionaries with 'path' key
             display_details: If True, display detailed results for each image
             user_criteria: Optional dictionary with user-defined criteria functions
+            dataset_size: Target total dataset size (if None, uses all images)
+            bin_ratios: Tuple of (bin_a_ratio, bin_b_ratio, bin_c_ratio) for distribution
 
         Returns:
             Dictionary with bin categories as keys and image lists as values
@@ -1119,56 +1324,109 @@ class ImageBinner:
         # Log starting amount
         total_start = len(images)
         logger.info(f"Binning started with {total_start} images")
-        logger.info(f"")
-        logger.info(f"Thresholds configured:")
-        logger.info(f"  Bin A (Text): text_boxes > {self.text_boxes_threshold}, text_area > {self.text_area_threshold}")
-        logger.info(f"  Bin B (Object): objects > {self.object_count_threshold}, unique_classes > {self.unique_objects_threshold}, dispersion > {self.spatial_dispersion_threshold}")
-        logger.info(f"  Bin C (Commonsense): CLIP similarity >= {self.clip_threshold}")
+        logger.info(f"Dataset size target: {dataset_size if dataset_size else 'all images'}")
+        logger.info(f"Bin ratios: A={bin_ratios[0]:.1%}, B={bin_ratios[1]:.1%}, C={bin_ratios[2]:.1%}")
         logger.info(f"")
 
-        bins = {'A': [], 'B': [], 'C': []}
+        # Calculate target sizes for each bin
+        if dataset_size is None:
+            dataset_size = total_start
+
+        target_a = int(dataset_size * bin_ratios[0])
+        target_b = int(dataset_size * bin_ratios[1])
+        target_c = int(dataset_size * bin_ratios[2])
+
+        logger.info(f"Target bin sizes: A={target_a}, B={target_b}, C={target_c}, Total={target_a + target_b + target_c}")
+        logger.info(f"")
+        logger.info(f"Step 1: Extracting features for all images...")
+
+        # Step 1: Extract ALL features for every image
+        enriched_images = []
 
         for idx, img_data in enumerate(images, 1):
             try:
-                # Always get detailed results for logging
+                # Get all feature details
                 details = self.categorize_image(img_data['path'], return_details=True)
-                bin_category = details['assigned_bin']
 
-                # Log detailed information for each image
-                filename = Path(img_data['path']).name
-                logger.info(f"Image {idx}/{total_start}: {filename}")
-                logger.info(f"  → Assigned to Bin {bin_category}")
-
-                # Log Bin A criteria
                 bin_a = details['bin_a_criteria']
-                logger.info(f"  Bin A: text_boxes={bin_a['num_text_boxes']} (threshold >{bin_a['text_boxes_threshold']}), "
-                           f"text_area={bin_a['text_area_ratio']:.4f} (threshold >{bin_a['text_area_threshold']}) "
-                           f"→ {'PASS' if bin_a['overall_passes'] else 'FAIL'}")
-
-                # Log Bin B criteria
                 bin_b = details['bin_b_criteria']
-                logger.info(f"  Bin B: objects={bin_b['num_objects']} (threshold >{bin_b['object_count_threshold']}), "
-                           f"unique_classes={bin_b['unique_classes']} (threshold >{bin_b['unique_objects_threshold']}), "
-                           f"dispersion={bin_b['spatial_dispersion']:.4f} (threshold >{bin_b['spatial_dispersion_threshold']}) "
-                           f"→ {'PASS' if bin_b['overall_passes'] else 'FAIL'}")
-
-                # Log Bin C criteria
                 bin_c = details['bin_c_criteria']
-                logger.info(f"  Bin C: clip_similarity={bin_c['clip_similarity']:.4f} (threshold >={bin_c['clip_threshold']}) "
-                           f"→ {'PASS' if bin_c['similarity_passes'] else 'FAIL'}")
-                logger.info(f"  Caption: '{bin_c['caption'][:100]}{'...' if len(bin_c['caption']) > 100 else ''}'")
-                logger.info(f"")
 
-                if display_details:
-                    # Display results to console
-                    self.display_image_results(details, user_criteria)
+                # Log progress every 10 images
+                if idx % 10 == 0 or idx == total_start:
+                    logger.info(f"  Processed {idx}/{total_start} images...")
 
-                bins[bin_category].append(img_data)
+                # Create enriched image data with ALL features
+                enriched_img_data = img_data.copy()
+
+                # Add ALL features (not just bin-specific)
+                enriched_img_data['num_boxes'] = bin_a['num_text_boxes']
+                enriched_img_data['text_area_ratio'] = bin_a['text_area_ratio']
+                enriched_img_data['num_objects'] = bin_b['num_objects']
+                enriched_img_data['unique_classes'] = bin_b['unique_classes']
+                enriched_img_data['dispersion'] = bin_b['spatial_dispersion']
+                enriched_img_data['similarity'] = bin_c['clip_similarity']
+                enriched_img_data['caption'] = bin_c['caption']
+
+                # Extract text and objects for all images
+                ocr_text = self.extract_text_content(img_data['path'])
+                enriched_img_data['ocr_text'] = ocr_text
+
+                detected_objects = self.extract_detected_objects(img_data['path'])
+                enriched_img_data['detected_objects'] = list(set(detected_objects))
+
+                enriched_images.append(enriched_img_data)
 
             except Exception as e:
-                logger.error(f"Error binning image {img_data['path']}: {e}")
-                # Default to Bin C on error
-                bins['C'].append(img_data)
+                logger.error(f"Error processing image {img_data['path']}: {e}")
+                # Still add the image with default values
+                enriched_img_data = img_data.copy()
+                enriched_img_data['num_boxes'] = 0
+                enriched_img_data['text_area_ratio'] = 0.0
+                enriched_img_data['num_objects'] = 0
+                enriched_img_data['unique_classes'] = 0
+                enriched_img_data['dispersion'] = 0.0
+                enriched_img_data['similarity'] = 0.0
+                enriched_img_data['caption'] = ""
+                enriched_img_data['ocr_text'] = ""
+                enriched_img_data['detected_objects'] = []
+                enriched_images.append(enriched_img_data)
+
+        logger.info(f"Feature extraction complete for {len(enriched_images)} images")
+        logger.info(f"")
+
+        # Step 2: Sequential binning with ranking
+        logger.info(f"Step 2: Assigning images to bins sequentially...")
+
+        bins = {'A': [], 'B': [], 'C': []}
+        remaining_images = enriched_images.copy()
+
+        # Bin A: Top images by text_area_ratio
+        logger.info(f"Assigning Bin A (Text): Selecting top {target_a} by text_area_ratio...")
+        remaining_images.sort(key=lambda x: x['text_area_ratio'], reverse=True)
+        bins['A'] = remaining_images[:target_a]
+        remaining_images = remaining_images[target_a:]
+        logger.info(f"  Bin A assigned: {len(bins['A'])} images")
+        logger.info(f"  Remaining pool: {len(remaining_images)} images")
+        logger.info(f"")
+
+        # Bin B: Top images by num_objects from remaining
+        logger.info(f"Assigning Bin B (Object): Selecting top {target_b} by num_objects from remaining...")
+        remaining_images.sort(key=lambda x: x['num_objects'], reverse=True)
+        bins['B'] = remaining_images[:target_b]
+        remaining_images = remaining_images[target_b:]
+        logger.info(f"  Bin B assigned: {len(bins['B'])} images")
+        logger.info(f"  Remaining pool: {len(remaining_images)} images")
+        logger.info(f"")
+
+        # Bin C: Top images by similarity from remaining
+        logger.info(f"Assigning Bin C (Commonsense): Selecting top {target_c} by similarity from remaining...")
+        remaining_images.sort(key=lambda x: x['similarity'], reverse=True)
+        bins['C'] = remaining_images[:target_c]
+        remaining_images = remaining_images[target_c:]
+        logger.info(f"  Bin C assigned: {len(bins['C'])} images")
+        logger.info(f"  Unassigned: {len(remaining_images)} images")
+        logger.info(f"")
 
         # Log ending amount for each bin
         logger.info(f"Binning complete:")

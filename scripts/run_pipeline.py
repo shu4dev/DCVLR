@@ -83,6 +83,13 @@ Examples:
     )
 
     parser.add_argument(
+        '--dataset-size',
+        type=int,
+        default=None,
+        help='Target dataset size for binning (default: None, uses all filtered images)'
+    )
+
+    parser.add_argument(
         '--device',
         type=str,
         default='cuda',
@@ -135,6 +142,7 @@ Examples:
     logger.info(f"Images directory: {args.images_dir}")
     logger.info(f"Output directory: {args.output_dir}")
     logger.info(f"Number of images: {args.num_images}")
+    logger.info(f"Dataset size: {args.dataset_size if args.dataset_size else 'all filtered images'}")
     logger.info(f"Configuration: {args.config}")
     logger.info(f"Bins ratio: {args.bins_ratio}")
     logger.info(f"Device: {args.device}")
@@ -158,7 +166,8 @@ Examples:
         logger.info("Starting pipeline execution...")
         results = pipeline.run(
             num_images=args.num_images,
-            bins_ratio=tuple(args.bins_ratio)
+            bins_ratio=tuple(args.bins_ratio),
+            dataset_size=args.dataset_size
         )
         
         # Print results summary

@@ -204,3 +204,6 @@ logs/
 # Config overrides (keep defaults)
 configs/local_config.yaml
 configs/custom_config.yaml
+
+collected_images/
+output_test/
