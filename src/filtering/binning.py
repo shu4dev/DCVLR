@@ -1180,6 +1180,31 @@ class ImageBinner:
 
         return bins
     
+    def categorize_from_features(self, features: Dict) -> str:
+        """
+        Categorize image into bin based on pre-extracted features.
+        
+        Args:
+            features: Dictionary of extracted features from FeatureExtractor
+            
+        Returns:
+            Bin type ('A', 'B', or 'C')
+        """
+        # Bin A: Text/Arithmetic - check OCR text
+        ocr_text = features.get('ocr_text', '')
+        if len(ocr_text) > 50:  # Significant text content
+            return 'A'
+        
+        # Bin B: Object/Spatial - check object count
+        num_objects = len(features.get('objects', []))
+        unique_classes = len(set(features.get('objects', [])))
+        
+        if num_objects >= self.object_count_threshold or unique_classes >= self.unique_objects_threshold:
+            return 'B'
+        
+        # Bin C: Commonsense (default)
+        return 'C'
+    
     def balance_bins(
         self,
         bins: Dict[str, List[Dict]],
