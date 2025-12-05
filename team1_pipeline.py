@@ -325,7 +325,21 @@ class DataSynthesisPipeline:
             logger.info(f"Complexity filter: {len(filtered_images)}/{len(images)} images passed")
             images = filtered_images
 
-        binned = self.image_binner.bin_images(images)
+        # Bin images with feature caching
+        binned_with_features = {'A': [], 'B': [], 'C': []}
+        
+        for img_data in tqdm(images, desc="Binning with feature caching"):
+            # Extract features once
+            features = self.feature_extractor.extract_all(img_data['path'])
+            
+            # Categorize using ImageBinner
+            bin_type = self.image_binner.categorize_image(img_data['path'])
+            
+            # Store with cached features
+            binned_with_features[bin_type].append({
+                **img_data,
+                'cached_features': features
+            })
 
         # Balance bins according to ratio
         target_a = int(len(images) * bins_ratio[0])
@@ -333,9 +347,9 @@ class DataSynthesisPipeline:
         target_c = len(images) - target_a - target_b
 
         balanced = {
-            'A': binned['A'][:target_a],
-            'B': binned['B'][:target_b],
-            'C': binned['C'][:target_c]
+            'A': binned_with_features['A'][:target_a],
+            'B': binned_with_features['B'][:target_b],
+            'C': binned_with_features['C'][:target_c]
         }
 
         logger.info(f"Binned images - A: {len(balanced['A'])}, "
@@ -359,8 +373,13 @@ class DataSynthesisPipeline:
             logger.info(f"Generating Q/A for Bin {bin_type}")
 
             for img_data in tqdm(images, desc=f"Bin {bin_type}"):
-                # Extract features
-                features = self.feature_extractor.extract_all(img_data['path'])
+                # Use cached features if available
+                features = img_data.get('cached_features')
+                
+                if not features:
+                    # Fallback: extract features if not cached
+                    logger.warning(f"No cached features for {img_data['path']}, extracting...")
+                    features = self.feature_extractor.extract_all(img_data['path'])
                 
                 # Generate Q/A
                 qa = self.qa_generator.generate(
