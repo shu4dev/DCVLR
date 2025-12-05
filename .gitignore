@@ -146,6 +146,7 @@ cython_debug/
 # Data directories
 data/
 data_tmp/
+data_test/
 datasets/
 output/
 outputs/
@@ -154,7 +155,7 @@ checkpoints/
 models/
 cache/
 .hf/
-
+.claude/
 # Image files (if storing locally)
 *.jpg
 *.jpeg
