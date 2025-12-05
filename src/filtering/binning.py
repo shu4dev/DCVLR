@@ -21,6 +21,7 @@ import cv2
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from src.utils.gpu_utils import GPUManager
+from src.utils.model_registry import ModelRegistry
 
 # Setup logger early
 logger = logging.getLogger(__name__)
@@ -177,6 +178,9 @@ class ImageBinner:
                     f"Consider upgrading: pip install --upgrade transformers"
                 )
 
+        # Get model registry instance
+        registry = ModelRegistry.get_instance()
+
         # OCR for text detection - always use PaddleOCR in hybrid mode
         ocr_device = device_map['ocr']
 
@@ -186,17 +190,16 @@ class ImageBinner:
                 "PaddleOCR not installed. Install with: pip install paddleocr paddlepaddle-gpu"
             )
 
-        logger.info(f"Loading PaddleOCR on {ocr_device}...")
+        def load_paddle_ocr():
+            return PaddleOCR(
+                use_doc_orientation_classify=False,
+                use_doc_unwarping=False,
+                use_textline_orientation=False
+            )
 
-        # PaddleOCR new API - device is handled automatically based on GPU availability
-        self.ocr = PaddleOCR(
-            use_doc_orientation_classify=False,
-            use_doc_unwarping=False,
-            use_textline_orientation=False
-        )
+        self.ocr = registry.get_model(f'paddleocr_{ocr_device}', load_paddle_ocr)
         self.ocr_backend = 'paddle'
         self.ocr_device = ocr_device
-        logger.info(f"PaddleOCR loaded successfully on {ocr_device}")
 
         # Clear cache after loading OCR (frees up memory on other GPUs)
         if self.gpu_manager.num_gpus > 1:
@@ -238,8 +241,6 @@ class ImageBinner:
 
         if self.object_detector == 'yolo':
             # YOLO-based object detection
-            logger.info(f"Loading YOLO ({self.yolo_model}) on {detector_device}...")
-
             # Model mapping
             model_mapping = {
                 'yolov8n': 'yolov8n.pt',
@@ -249,36 +250,33 @@ class ImageBinner:
                 'yolov11s': 'yolo11s.pt',
             }
 
-            # Load the selected YOLO model
             model_file = model_mapping.get(self.yolo_model, 'yolov8n.pt')
-            # YOLO loads on CPU by default
-            if detector_device != "cpu":
-                # Use device parameter during YOLO initialization if available, or move after
-                self.yolo = YOLO(model_file)
-                self.yolo.to(detector_device)
-            else:
-                self.yolo = YOLO(model_file)
-            logger.info(f"YOLO {self.yolo_model} loaded on {detector_device}")
+            
+            def load_yolo():
+                yolo_model = YOLO(model_file)
+                if detector_device != "cpu":
+                    yolo_model.to(detector_device)
+                return yolo_model
 
-            # Store device for YOLO inference
+            self.yolo = registry.get_model(f'yolo_{self.yolo_model}_{detector_device}', load_yolo)
             self.detector_device = detector_device
 
         # CLIP for caption similarity
         clip_device = device_map['clip']
-        logger.info(f"Loading CLIP on {clip_device}...")
-        # Load CLIP with device parameter if supported, otherwise move after
-        self.clip_model, _, self.clip_preprocess = open_clip.create_model_and_transforms(
-            'ViT-B-32',
-            pretrained='openai',
-            device=clip_device if clip_device != "cpu" else None
-        )
-        if clip_device != "cpu":
-            self.clip_model = self.clip_model.to(clip_device)
+        
+        def load_clip():
+            model, _, preprocess = open_clip.create_model_and_transforms(
+                'ViT-B-32',
+                pretrained='openai',
+                device=clip_device if clip_device != "cpu" else None
+            )
+            if clip_device != "cpu":
+                model = model.to(clip_device)
+            return model, preprocess
 
+        self.clip_model, self.clip_preprocess = registry.get_model(f'clip_{clip_device}', load_clip)
         self.clip_tokenizer = open_clip.get_tokenizer('ViT-B-32')
         self.clip_device = clip_device
-
-        logger.info(f"CLIP loaded on {clip_device}")
 
         # Captioning backend - support BLIP, BLIP-2, or Moondream
         if self.captioner_backend == 'moondream':
@@ -306,47 +304,40 @@ class ImageBinner:
         if self.captioner_backend in ['blip', 'blip2']:
             # BLIP/BLIP-2 for local captioning
             blip_device = device_map['blip']
-            logger.info(f"Loading BLIP on {blip_device}...")
 
             if self.captioner_backend == 'blip2' or self.use_blip2:
                 # BLIP-2 for higher quality captions
-                self.blip_processor = Blip2Processor.from_pretrained("Salesforce/blip2-opt-2.7b")
+                def load_blip2():
+                    processor = Blip2Processor.from_pretrained("Salesforce/blip2-opt-2.7b")
+                    if processor.tokenizer.pad_token is None:
+                        processor.tokenizer.pad_token = processor.tokenizer.eos_token
+                        processor.tokenizer.pad_token_id = processor.tokenizer.eos_token_id
+                    
+                    model_dtype = torch.float16 if "cuda" in blip_device else torch.float32
+                    model = Blip2ForConditionalGeneration.from_pretrained(
+                        "Salesforce/blip2-opt-2.7b",
+                        torch_dtype=model_dtype
+                    )
+                    if "cuda" in blip_device:
+                        model = model.to(blip_device)
+                    model.eval()
+                    return processor, model
 
-                # Set pad_token if not already set
-                if self.blip_processor.tokenizer.pad_token is None:
-                    self.blip_processor.tokenizer.pad_token = self.blip_processor.tokenizer.eos_token
-                    self.blip_processor.tokenizer.pad_token_id = self.blip_processor.tokenizer.eos_token_id
-
-                # Determine dtype and device for loading
-                model_dtype = torch.float16 if "cuda" in blip_device else torch.float32
-
-                # Load model without device_map for better compatibility
-                self.blip_model = Blip2ForConditionalGeneration.from_pretrained(
-                    "Salesforce/blip2-opt-2.7b",
-                    torch_dtype=model_dtype
-                )
-                # Move model to device explicitly
-                if "cuda" in blip_device:
-                    self.blip_model = self.blip_model.to(blip_device)
-                self.blip_model.eval()
-                logger.info(f"BLIP-2 loaded on {blip_device}")
+                self.blip_processor, self.blip_model = registry.get_model(f'blip2_{blip_device}', load_blip2)
                 self.captioner_backend = 'blip2'
             else:
                 # BLIP-base for faster processing
-                self.blip_processor = BlipProcessor.from_pretrained(
-                    "Salesforce/blip-image-captioning-base"
-                )
+                def load_blip():
+                    processor = BlipProcessor.from_pretrained("Salesforce/blip-image-captioning-base")
+                    if processor.tokenizer.pad_token is None:
+                        processor.tokenizer.pad_token = processor.tokenizer.eos_token
+                        processor.tokenizer.pad_token_id = processor.tokenizer.eos_token_id
+                    
+                    model = BlipForConditionalGeneration.from_pretrained("Salesforce/blip-image-captioning-base")
+                    model.to(blip_device)
+                    return processor, model
 
-                # Set pad_token if not already set
-                if self.blip_processor.tokenizer.pad_token is None:
-                    self.blip_processor.tokenizer.pad_token = self.blip_processor.tokenizer.eos_token
-                    self.blip_processor.tokenizer.pad_token_id = self.blip_processor.tokenizer.eos_token_id
-
-                self.blip_model = BlipForConditionalGeneration.from_pretrained(
-                    "Salesforce/blip-image-captioning-base"
-                )
-                self.blip_model.to(blip_device)
-                logger.info(f"BLIP-base loaded on {blip_device}")
+                self.blip_processor, self.blip_model = registry.get_model(f'blip_{blip_device}', load_blip)
                 self.captioner_backend = 'blip'
 
             self.blip_device = blip_device

@@ -5,6 +5,7 @@ Handles OCR, object detection, and image captioning.
 
 import logging
 from typing import Dict, List, Any, Optional
+from src.utils.model_registry import ModelRegistry
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +38,8 @@ class FeatureExtractor:
 
     def _load_models(self):
         """Load all feature extraction models."""
+        registry = ModelRegistry.get_instance()
+        
         # In caption-only mode, skip OCR and object detection
         if self.caption_only:
             logger.info("Caption-only mode: Skipping OCR and object detection models")
@@ -45,31 +48,37 @@ class FeatureExtractor:
         else:
             # Load OCR model
             try:
-                import easyocr
-                self.ocr_model = easyocr.Reader(['en'], gpu=self.device == 'cuda')
-                logger.info("OCR model loaded")
+                def load_easyocr():
+                    import easyocr
+                    return easyocr.Reader(['en'], gpu=self.device == 'cuda')
+                
+                self.ocr_model = registry.get_model(f'easyocr_{self.device}', load_easyocr)
             except Exception as e:
                 logger.warning(f"Could not load OCR model: {e}")
                 self.ocr_model = None
 
             # Load object detector (YOLO)
             try:
-                from ultralytics import YOLO
-                self.object_detector = YOLO('yolov8n.pt')
-                logger.info("Object detector loaded")
+                def load_yolo():
+                    from ultralytics import YOLO
+                    return YOLO('yolov8n.pt')
+                
+                self.object_detector = registry.get_model(f'yolo_yolov8n_{self.device}', load_yolo)
             except Exception as e:
                 logger.warning(f"Could not load object detector: {e}")
                 self.object_detector = None
 
         # Always load image captioner
         try:
-            from transformers import pipeline
-            self.captioner = pipeline(
-                "image-to-text",
-                model="Salesforce/blip-image-captioning-base",
-                device=0 if self.device == "cuda" else -1
-            )
-            logger.info("Image captioner loaded")
+            def load_captioner():
+                from transformers import pipeline
+                return pipeline(
+                    "image-to-text",
+                    model="Salesforce/blip-image-captioning-base",
+                    device=0 if self.device == "cuda" else -1
+                )
+            
+            self.captioner = registry.get_model(f'blip_captioner_{self.device}', load_captioner)
         except Exception as e:
             logger.warning(f"Could not load captioner: {e}")
             self.captioner = None
