@@ -2,6 +2,7 @@ import json
 import shutil
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from collections import Counter
 from tqdm import tqdm  # pip install tqdm
 
 
@@ -79,6 +80,7 @@ def collect_images_from_jsonl_fast(
 
     # Load all entries first
     entries = []
+    all_paths = []  # Track all image paths for duplicate detection
     with jsonl_path.open("r", encoding="utf-8") as f:
         for line_num, line in enumerate(f, start=1):
             line = line.strip()
@@ -90,11 +92,19 @@ def collect_images_from_jsonl_fast(
                 print(f"[Line {line_num}] Skipping invalid JSON: {e}")
                 continue
             entries.append(entry)
+            # Track the path for duplicate detection
+            img_path = entry.get("path")
+            if img_path:
+                all_paths.append(img_path)
 
     total = len(entries)
     if total == 0:
         print("No valid entries found in JSONL.")
         return
+
+    # Detect duplicate paths (appearing more than 2 times)
+    path_counts = Counter(all_paths)
+    duplicates = {path: count for path, count in path_counts.items() if count > 2}
 
     # Parallel I/O with progress bar
     results = [None] * total
@@ -125,28 +135,49 @@ def collect_images_from_jsonl_fast(
     output_jsonl_path = per_json_dir / jsonl_path.name
     num_success = 0
     num_total = 0
+    missing_images = []  # Track all missing image paths
 
     with output_jsonl_path.open("w", encoding="utf-8") as out_f:
         for idx, (entry, res) in enumerate(zip(entries, results)):
             num_total += 1
             if res is None or res["new_rel_path"] is None:
                 # Skip entries where we failed to copy
+                if res and res["error"] and "Image not found" in res["error"]:
+                    # Extract the path from the error message or use the original path
+                    img_path = entry.get("path", "Unknown path")
+                    missing_images.append(img_path)
                 continue
             entry = dict(entry)  # shallow copy
             entry["path"] = res["new_rel_path"]  # e.g. "images/xxx.jpg" or "images/A/xxx.jpg"
             out_f.write(json.dumps(entry, ensure_ascii=False) + "\n")
             num_success += 1
 
-    print(f"Finished. Wrote {num_success}/{num_total} entries to {output_jsonl_path}")
+    print(f"\nFinished. Wrote {num_success}/{num_total} entries to {output_jsonl_path}")
     print(f"Images are under: {images_root}")
+
+    # Print duplicate paths report
+    if duplicates:
+        print(f"\n⚠️  WARNING: {len(duplicates)} image path(s) appear more than 2 times:")
+        for dup_path, count in sorted(duplicates.items(), key=lambda x: x[1], reverse=True):
+            print(f"  - {dup_path} (appears {count} times)")
+    else:
+        print("\n✓ No duplicate paths found (all paths appear 2 or fewer times)")
+
+    # Print summary of missing images
+    if missing_images:
+        print(f"\n⚠️  WARNING: {len(missing_images)} image(s) not found:")
+        for img_path in missing_images:
+            print(f"  - {img_path}")
+    else:
+        print("\n✓ All images found successfully!")
 
 
 if __name__ == "__main__":
     collect_images_from_jsonl_fast(
-        jsonl_file="./output/intermediate/stage2_binning/all_binned_images.jsonl",      # your input jsonl
-        output_root="collected_images/",         # top-level output directory
+        jsonl_file="./output/intermediate/stage4_qa_generation/hard_qa_pairs.jsonl",      # your input jsonl
+        output_root="dataset",         # top-level output directory
         group_by_bin=False,           # True -> images/<bin>/...
         move_instead_of_copy=False,
-        max_workers=16,
+        max_workers=96,
         keep_extension_folder=True,   # False -> folder is output/data instead of output/data.jsonl
     )

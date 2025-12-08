@@ -150,6 +150,8 @@ data_test/
 datasets/
 output/
 outputs/
+output_backup/
+retry_results/
 results/
 checkpoints/
 models/

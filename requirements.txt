@@ -16,6 +16,7 @@ opencv-python
 Pillow
 
 # LLM and NLP
+openai
 sentencepiece
 protobuf
 tokenizers
