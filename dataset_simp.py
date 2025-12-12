@@ -9,23 +9,7 @@ login()  # will prompt for your HF token once
 ds = load_dataset("shu4dev/DCVLR_10K_details", split="train")
 
 LETTER_TO_INDEX = {"A": 0, "B": 1, "C": 2, "D": 3}
-
-def add_explicit_final_answer(example):
-    ans_letter = example.get("answer", "").strip()
-    options = example.get("options", [])
-
-    idx = LETTER_TO_INDEX.get(ans_letter, None)
-
-    if idx is not None and 0 <= idx < len(options):
-        final_option_text = options[idx]
-        base_trace = (example.get("reasoning_trace", "") or "").strip()
-        example["reasoning_trace"] = f"{base_trace}\n\nFinal answer: {final_option_text}"
-    else:
-        example["reasoning_trace"] = example.get("reasoning_trace", "")
-
-    return example
-
-ds = ds.map(add_explicit_final_answer)
+INDEX_TO_LETTER = ["A", "B", "C", "D"]
 
 # ------------------------------------------------------------------
 # Resize images in "path" so that the longest side <= 840 px
@@ -78,13 +62,57 @@ def resize_image_and_update_path(example):
 
 ds = ds.map(resize_image_and_update_path, num_proc=4)
 
+# ------------------------------------------------------------------
+# Build the final "solution" in your desired format:
+#
+# Image Description:
+# {reasoning_description}
+#
+# Reasoning Trace:
+# {reasoning_trace}
+#
+# Final Answer:
+# {final_option_text}
+# ------------------------------------------------------------------
+
+def build_solution(example):
+    reasoning_desc = (example.get("reasoning_description", "") or "").strip()
+    reasoning_trace = (example.get("reasoning_trace", "") or "").strip()
+    options = example.get("options", []) or []
+    ans_letter = (example.get("answer", "") or "").strip()
+
+    # Resolve final answer text from options + answer letter
+    final_answer_text = ""
+    if ans_letter in LETTER_TO_INDEX:
+        idx = LETTER_TO_INDEX[ans_letter]
+        if 0 <= idx < len(options):
+            final_answer_text = options[idx]
+        else:
+            final_answer_text = f"Option {ans_letter}"
+    else:
+        final_answer_text = str(ans_letter)
+
+    solution = (
+        "Image Description:\n"
+        f"{reasoning_desc}\n\n"
+        "Reasoning Trace:\n"
+        f"{reasoning_trace}\n\n"
+        "Final Answer:\n"
+        f"{final_answer_text}"
+    )
+
+    example["solution"] = solution
+    return example
+
+ds = ds.map(build_solution)
+
 # 3. Keep only needed columns, then rename to image/problem/solution
-ds = ds.select_columns(["path", "question", "reasoning_trace"])
+ds = ds.select_columns(["path", "question", "solution"])
 
 ds = ds.rename_columns({
     "path": "image",
     "question": "problem",
-    "reasoning_trace": "solution",
+    # "solution" already set
 })
 
 # (Optional, just to enforce column order explicitly)
