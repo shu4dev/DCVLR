@@ -5,7 +5,7 @@ Implementation of reasoning-focused data synthesis workflow. The pipeline curate
 ## Highlights
 - **End-to-end pipeline** – filtering, binning, synthesis, and validation in a single orchestrator
 - **Modular stages** – swap filtering, LLM, or validation components by editing `configs/default_config.yaml`
-- **Multi-GPU optimization** – optimized pipeline for 2-4x speedup on multi-GPU systems
+- **Multi-GPU optimization** – enable with `--optimize` flag for 2-4x speedup
 - **Flexible captioning** – choose between BLIP, BLIP-2, or Moondream API for image captions
 - **Dual OCR backends** – PaddleOCR (lightweight) or DeepSeek-OCR (high accuracy)
 - **Feature extraction modes** – full features (OCR+objects+captions) or caption-only for 70% faster processing
@@ -17,27 +17,37 @@ Implementation of reasoning-focused data synthesis workflow. The pipeline curate
 
 ## Repository Layout
 ```
-team1-data-synthesis/
+DCVLR/
+├── src/
+│   ├── pipeline/
+│   │   └── core.py                  # Main pipeline orchestrator
+│   ├── filtering/
+│   │   ├── filters.py               # Image filtering (standard + batched)
+│   │   ├── binning.py               # Image binning
+│   │   ├── binning_multiprocess.py  # Multi-GPU binning
+│   │   └── yolov11.py               # YOLO detection
+│   ├── synthesis/
+│   │   ├── qa_generator.py          # Q/A generation (WIP)
+│   │   ├── feature_extractor.py     # Feature extraction (WIP)
+│   │   ├── deepseek_qa_generator.py # DeepSeek API script
+│   │   └── api_client.py            # API utilities
+│   ├── validation/
+│   │   └── validator.py             # Data validation
+│   └── utils/
+│       ├── logging.py               # Logging configuration
+│       ├── gpu.py                   # GPU management
+│       ├── image_collector.py       # Image collection utilities
+│       └── dataset_converter.py     # Dataset format conversion
+├── scripts/
+│   ├── run_pipeline.py              # CLI (supports --optimize flag)
+│   └── export_images.py             # Export images from Hugging Face
+├── examples/
+│   └── pipeline_demo.py             # Demo script
 ├── configs/
 │   └── default_config.yaml          # Tunable thresholds and model names
 ├── docs/                            # Extended documentation
-├── notebooks/
-│   └── pipeline_demo.ipynb          # Walk-through notebook
-├── scripts/
-│   ├── run_pipeline.py              # CLI for the full pipeline
-│   └── export_images.py             # Export images from Hugging Face datasets
-├── src/
-│   ├── filtering/
-│   │   ├── binning.py               # Text/object/commonsense binning
-│   │   └── image_filter.py          # Resolution/NSFW/watermark filtering
-│   ├── synthesis/                   # Q/A generation + feature extraction
-│   ├── validation/                  # Dataset validation utilities
-│   └── utils/                       # Shared helpers (logging, GPU management)
 ├── tests/                           # Unit tests
-├── team1_pipeline.py                # High-level orchestrator
-├── test_train_folders_simple.py     # Test data structure
 ├── requirements.txt                 # Python dependencies
-├── setup.py                         # Editable install entry-point
 └── README.md
 ```
 
@@ -140,7 +150,7 @@ The pipeline supports three captioning backends for generating image description
 View how each image performs against all bin criteria plus custom user-defined criteria:
 
 ```python
-from src.filtering.binning import ImageBinner
+from src.filtering import ImageBinner
 
 binner = ImageBinner(config)
 
@@ -261,8 +271,9 @@ Stage 3: Synthesizing Q/A pairs...
 - `--output-dir` – Output directory for results (default: `output/`)
 - `--config` – Path to configuration YAML file (default: `configs/default_config.yaml`)
 - `--bins-ratio` – Bin ratios for Text:Object:Commonsense (default: `0.4 0.4 0.2`)
-- `--llm-model` – Override the LLM model from config
+- `--dataset-size` – Target dataset size for binning (default: None, uses all filtered images)
 - `--device` – Device to use: `cuda` or `cpu` (default: `cuda`)
+- `--optimize` – Enable optimizations (batched filtering, multi-GPU binning) for 2-4x speedup
 - `--verbose` – Enable detailed debug logging
 - `--dry-run` – Validate configuration without running the pipeline
 
@@ -271,13 +282,12 @@ Stage 3: Synthesizing Q/A pairs...
 The Python API also benefits from automatic resume - just call `pipeline.run()` again!
 
 ```python
-from team1_pipeline import DataSynthesisPipeline
+from src.pipeline import DataSynthesisPipeline
 
 pipeline = DataSynthesisPipeline(
     config_path="configs/default_config.yaml",
     images_dir="data/images",
     output_dir="output/experiment_01",
-    llm_model="tiiuae/falcon-7b-instruct",
     device="cuda"
 )
 
@@ -294,21 +304,22 @@ Each stage (`filter_stage`, `bin_stage`, `synthesis_stage`, `validation_stage`) 
 
 ### 3. Optimized Pipeline (Multi-GPU)
 
-For systems with multiple GPUs and sufficient VRAM, use the optimized pipeline:
+For systems with multiple GPUs and sufficient VRAM, enable optimizations with the `--optimize` flag:
 
 ```bash
-python scripts/run_pipeline_optimized.py --images-dir ./data --num-images 100
+python scripts/run_pipeline.py \
+  --images-dir ./data \
+  --num-images 100 \
+  --optimize
 ```
 
 **Performance improvements:**
 - 2 GPUs: ~2.3x faster
 - 4 GPUs: ~4.3x faster
 
-The optimized pipeline uses:
+The `--optimize` flag enables:
 - **Batched filtering** (5x faster Stage 1)
 - **Multi-GPU parallelism** (2x faster Stage 2)
-
-See [docs/QUICK_START_OPTIMIZED.md](docs/QUICK_START_OPTIMIZED.md) for details.
 
 ## Outputs
 Running the pipeline creates an output directory (default `output/`) containing:
@@ -428,16 +439,15 @@ For systems with 2+ GPUs:
 # Steps 1-3 same as above
 
 # 4. Run optimized pipeline (2-4x faster!)
-python scripts/run_pipeline_optimized.py \
+python scripts/run_pipeline.py \
   --images-dir ./data \
-  --num-images 100
+  --num-images 100 \
+  --optimize
 
 # Automatically enables:
 # - Batched filtering (5x faster)
 # - Multi-GPU parallelism (2x faster)
 ```
-
-See [docs/QUICK_START_OPTIMIZED.md](docs/QUICK_START_OPTIMIZED.md) for details.
 
 ## Example Datasets
 

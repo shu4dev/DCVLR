@@ -1,4 +1,4 @@
-# Team-1 Data Synthesis Pipeline Configuration
+# Data Synthesis Pipeline Configuration
 
 # Image Filtering Settings
 filtering:
@@ -10,149 +10,86 @@ filtering:
 
 # Image Binning Settings
 binning:
-  text_boxes_threshold: 2       # Min text boxes for Bin A (Text/Arithmetic)
-  text_area_threshold: 0.2      # Min text area ratio for Bin A
-  object_count_threshold: 2     # Min objects for Bin B (Object/Spatial)
-  unique_objects_threshold: 1   # Min unique object types for Bin B
-  clip_similarity_threshold: 0.35  # Min CLIP similarity for Bin C validation
+  text_boxes_threshold: 2       # Minimum text boxes for Bin A (Text/Arithmetic)
+  text_area_threshold: 0.2      # Minimum text area ratio for Bin A
+  object_count_threshold: 2     # Minimum objects for Bin B (Object/Spatial)
+  unique_objects_threshold: 1   # Minimum unique object types for Bin B
+  clip_similarity_threshold: 0.35  # Minimum CLIP similarity for Bin C validation
   spatial_dispersion_threshold: 0.3  # Spatial dispersion threshold for complexity filtering
 
-  # PIPELINE MODE SELECTION
-  # ======================
-  # Choose between two distinct pipelines:
-  #
-  # Option 1: "hybrid" - PaddleOCR + Separate Models
-  #   - OCR: PaddleOCR (lightweight, ~200MB)
-  #   - Object Detection: YOLO or SAM
-  #   - Captioning: BLIP, BLIP-2, or Moondream API
-  #   - Requirements: transformers >= 4.47.0 (for BLIP models)
-  #   - Pro: More flexible, lower VRAM per model
-  #   - Con: Multiple model loading, more complex setup
-  #
-  # Option 2: "deepseek_unified" - DeepSeek-OCR for All Tasks
-  #   - OCR: DeepSeek-OCR (heavy, ~10GB)
-  #   - Object Detection: DeepSeek-OCR grounding mode
-  #   - Captioning: DeepSeek-OCR caption generation
-  #   - Requirements: transformers == 4.46.3 (CRITICAL - exact version required!)
-  #   - Pro: Single model for all tasks, unified processing
-  #   - Con: High VRAM requirement (~10GB), slower processing
-  #
-  # IMPORTANT: Pipeline modes require DIFFERENT transformers versions!
-  #   - hybrid mode: pip install transformers>=4.47.0
-  #   - deepseek_unified mode: pip install transformers==4.46.3
-  #
-  pipeline_mode: 'hybrid'       # Options: 'hybrid' or 'deepseek_unified'
-                                # hybrid mode automatically uses PaddleOCR (lightweight, ~200MB)
-                                # deepseek_unified mode uses DeepSeek-OCR for all tasks (heavy, ~10GB)
-
-  # DeepSeek-OCR model settings (only used in 'deepseek_unified' mode)
-  deepseek_model_size: 'tiny'   # Model size: 'tiny', 'small', 'base', 'large' (tiny uses least memory)
-
-  # Multi-GPU settings
+  pipeline_mode: 'hybrid'       # Pipeline mode: 'hybrid' (PaddleOCR + separate models) or 'deepseek_unified' (DeepSeek-OCR for all)
+  deepseek_model_size: 'tiny'   # DeepSeek model size: 'tiny', 'small', 'base', 'large' (only for deepseek_unified mode)
   enable_multi_gpu: true        # Auto-detect and distribute models across multiple GPUs
-                                # With 1 GPU: all models on cuda:0
-                                # With 2 GPUs: OCR on cuda:0, other models on cuda:1
-                                # With 3+ GPUs: OCR on cuda:0, YOLO on cuda:1, CLIP/BLIP on cuda:2
 
-  # ======================
-  # HYBRID MODE SETTINGS (only used when pipeline_mode: 'hybrid')
-  # ======================
-
-  # Enhanced model options (merged from blip2.py and yolov11-filter.py)
+  # Hybrid Mode Settings
   use_blip2: false              # Use BLIP-2 for higher quality captions (requires more GPU memory)
+  captioner_backend: 'blip2'    # Captioning backend: 'blip' (fast), 'blip2' (quality), 'moondream' (API)
+  moondream_api_key: null       # Moondream API key (required if captioner_backend is 'moondream')
+  moondream_caption_length: 'long'  # Moondream caption length: 'short', 'normal', 'long'
 
-  # Captioning Backend Selection
-  captioner_backend: 'blip2'     # Options: 'blip', 'blip2', 'moondream'
-                                # blip = BLIP-base (fast, local, ~1GB VRAM)
-                                # blip2 = BLIP-2 (high quality, local, ~10GB VRAM)
-                                # moondream = Moondream API (cloud-based, requires API key)
-
-  # Moondream API settings (only used if captioner_backend: 'moondream')
-  moondream_api_key: null       # Your Moondream API key (required for Moondream)
-  moondream_caption_length: 'long'  # Options: 'short', 'normal', 'long'
-
-  # Object Detection Backend Selection
-  object_detector: 'yolo'       # Options: 'yolo' or 'sam'
-                                # yolo = Fast, provides class labels and object types
-                                # sam = Slower, finds all objects/regions without classification
-
-  # YOLO-specific settings (only used if object_detector: 'yolo')
-  yolo_model: 'yolov11s'         # Options: 'yolov8n', 'yolov8s', 'yolov9s', 'yolov10s', 'yolov11s'
-                                # n = nano (fastest, least accurate)
-                                # s = small (balanced)
-
-  # SAM-specific settings (only used if object_detector: 'sam')
-  sam_model_type: 'vit_b'       # Options: 'vit_b' (375MB), 'vit_l' (1.2GB), 'vit_h' (2.4GB)
+  object_detector: 'yolo'       # Object detector: 'yolo' (fast, labeled) or 'sam' (thorough, unlabeled)
+  yolo_model: 'yolov11s'        # YOLO model: 'yolov8n', 'yolov8s', 'yolov9s', 'yolov10s', 'yolov11s'
+  sam_model_type: 'vit_b'       # SAM model type: 'vit_b' (375MB), 'vit_l' (1.2GB), 'vit_h' (2.4GB)
   sam_checkpoint: 'models/sam_vit_b_01ec64.pth'  # Path to SAM checkpoint file
 
 # Q/A Synthesis Settings
 synthesis:
   llm_model: "tiiuae/falcon-7b-instruct"  # LLM model for Q/A generation
-  max_tokens: 512              # Max tokens for generation
+  max_tokens: 512              # Maximum tokens for generation
   temperature: 0.7             # Sampling temperature
-  top_p: 0.9                  # Nucleus sampling parameter
-  do_sample: true             # Enable sampling
-  num_templates_per_bin: 5    # Number of prompt templates per bin
-  batch_size: 1               # Batch size for generation
+  top_p: 0.9                   # Nucleus sampling parameter
+  do_sample: true              # Enable sampling
+  num_templates_per_bin: 5     # Number of prompt templates per bin
+  batch_size: 1                # Batch size for generation
 
-  # Feature Extraction Mode
-  use_full_features: true      # Options: true or false
-                               # true = Use all extracted features (OCR, objects, spatial relations, captions)
-                               #        - More detailed Q/A pairs
-                               #        - Longer processing time
-                               #        - Requires OCR and object detection models
-                               # false = Use only image captions
-                               #         - Simpler Q/A pairs
-                               #         - Faster processing
-                               #         - Lower memory usage (no OCR/object detection needed)
-
-  # Feature extraction settings (only used if use_full_features: true)
-  ocr_lang: "en"              # OCR language
-  use_angle_cls: true         # Enable angle classification in OCR
+  use_full_features: true      # Use all features (OCR, objects, captions) or caption-only
+  ocr_lang: "en"               # OCR language
+  use_angle_cls: true          # Enable angle classification in OCR
   yolo_model: "yolov11s.pt"    # YOLO model for object detection
   blip_model: "Salesforce/blip-image-captioning-base"  # BLIP model for captioning
-  clip_model: "ViT-B-32"      # CLIP model for similarity
+  clip_model: "ViT-B-32"       # CLIP model for similarity
 
 # Validation Settings
 validation:
   min_question_length: 5       # Minimum words in question
   min_answer_length: 1         # Minimum words in answer
   min_reasoning_length: 10     # Minimum words in reasoning
+  min_reasoning_steps: 2       # Minimum reasoning steps required
   similarity_threshold: 0.9    # Text similarity threshold for duplicates
   enable_grounding_check: true # Enable source grounding validation
   enable_math_check: true      # Enable arithmetic validation
-  math_tolerance: 1e-6        # Tolerance for math answer checking
+  math_tolerance: 1e-6         # Tolerance for math answer checking
 
 # Hardware Settings
 device:
-  cuda_device: 0              # CUDA device index
-  cpu_threads: 4              # Number of CPU threads
-  mixed_precision: true       # Enable mixed precision
-  
+  cuda_device: 0               # CUDA device index
+  cpu_threads: 4               # Number of CPU threads
+  mixed_precision: true        # Enable mixed precision
+
 # Logging Settings
 logging:
-  level: "INFO"               # Logging level
+  level: "INFO"                # Logging level
   format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-  file: "pipeline.log"        # Log file name
-  console: true               # Enable console logging
+  file: "pipeline.log"         # Log file name
+  console: true                # Enable console logging
 
 # Output Settings
 output:
-  save_intermediate: true     # Save intermediate results
-  compression: "gzip"         # Compression for saved files
+  save_intermediate: true      # Save intermediate results
+  compression: "gzip"          # Compression for saved files
   formats:
-    - jsonl                   # Output formats
+    - jsonl                    # Output formats
     - csv
-  
+
 # Data Settings
 data:
-  image_extensions:           # Supported image extensions
+  image_extensions:            # Supported image extensions
     - .jpg
     - .jpeg
     - .png
     - .gif
     - .bmp
     - .webp
-  
-  max_images_per_batch: 100   # Max images to process per batch
-  shuffle: true               # Shuffle images before processing
+
+  max_images_per_batch: 100    # Maximum images to process per batch
+  shuffle: true                # Shuffle images before processing

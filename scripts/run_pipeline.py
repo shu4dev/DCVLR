@@ -12,7 +12,7 @@ from pathlib import Path
 # Add parent directory to path for imports
 sys.path.append(str(Path(__file__).parent.parent))
 
-from team1_pipeline import DataSynthesisPipeline
+from src.pipeline import DataSynthesisPipeline
 
 
 def main():
@@ -68,13 +68,6 @@ Examples:
     )
     
     parser.add_argument(
-        '--llm-model',
-        type=str,
-        default=None,
-        help='Override LLM model from config'
-    )
-    
-    parser.add_argument(
         '--bins-ratio',
         type=float,
         nargs=3,
@@ -95,6 +88,12 @@ Examples:
         default='cuda',
         choices=['cuda', 'cpu'],
         help='Device to run models on (default: cuda)'
+    )
+
+    parser.add_argument(
+        '--optimize',
+        action='store_true',
+        help='Enable optimizations (batched filtering, multi-GPU binning) for 2-4x speedup'
     )
     
     parser.add_argument(
@@ -158,8 +157,8 @@ Examples:
             config_path=args.config,
             images_dir=args.images_dir,
             output_dir=args.output_dir,
-            llm_model=args.llm_model or "tiiuae/falcon-7b-instruct",
-            device=args.device
+            device=args.device,
+            use_optimization=args.optimize
         )
         
         # Run pipeline

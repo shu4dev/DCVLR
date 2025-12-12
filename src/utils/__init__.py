@@ -1,3 +1,4 @@
-from .logging_utils import setup_logging, get_logger
+from .logging import setup_logging, get_logger
+from .gpu import GPUManager
 
-__all__ = ['setup_logging', 'get_logger']
+__all__ = ['setup_logging', 'get_logger', 'GPUManager']

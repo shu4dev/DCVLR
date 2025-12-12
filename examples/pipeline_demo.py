@@ -19,7 +19,7 @@ import matplotlib.pyplot as plt
 # sys.path.append('..')
 
 # Import pipeline
-from team1_pipeline import DataSynthesisPipeline
+from src.pipeline import DataSynthesisPipeline
 
 
 def initialize_pipeline():
