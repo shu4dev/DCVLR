@@ -2,18 +2,6 @@
 
 Implementation of reasoning-focused data synthesis workflow. The pipeline curates raw images, synthesizes question/answer/reasoning triples with a large language model, and validates the generations to produce high-quality vision-language datasets.
 
-## Highlights
-- **End-to-end pipeline** – filtering, binning, synthesis, and validation in a single orchestrator
-- **Modular stages** – swap filtering, LLM, or validation components by editing `configs/default_config.yaml`
-- **Multi-GPU optimization** – enable with `--optimize` flag for 2-4x speedup
-- **Flexible captioning** – choose between BLIP, BLIP-2, or Moondream API for image captions
-- **Dual OCR backends** – PaddleOCR (lightweight) or DeepSeek-OCR (high accuracy)
-- **Feature extraction modes** – full features (OCR+objects+captions) or caption-only for 70% faster processing
-- **Detailed binning analysis** – view how each image scores against all bin criteria with custom filters
-- **Intermediate saves** – automatically saves results after each stage for debugging and recovery
-- **Automatic resume** – detects interrupted runs and resumes from the last completed stage
-- **Scriptable + importable** – run via CLI or embed with the `DataSynthesisPipeline` class
-- **Reproducible config** – every stage is parameterized by YAML and persisted with outputs/logs
 
 ## Repository Layout
 ```
@@ -68,8 +56,6 @@ source .venv/bin/activate        # Windows: .venv\Scripts\activate
 # Install runtime dependencies
 pip install -r requirements.txt
 
-# Or install in editable mode with extras for development/notebooks
-pip install -e .[dev,notebook]
 ```
 
 ## Configuring the Pipeline
@@ -448,21 +434,3 @@ python scripts/run_pipeline.py \
 # - Batched filtering (5x faster)
 # - Multi-GPU parallelism (2x faster)
 ```
-
-## Example Datasets
-
-The pipeline works with any image dataset. Here are some examples:
-
-**Supported datasets** (via `scripts/export_images.py`):
-- `HuggingFaceM4/ChartQA` - Chart and graph images
-- `derek-thomas/ScienceQA` - Science question images
-- `vidore/infovqa_train` - Information-seeking VQA
-- `Luckyjhg/Geo170K` - Geometry images
-- `lmms-lab/multimodal-open-r1-8k-verified` - Multimodal reasoning
-- `Zhiqiang007/MathV360K` - Mathematical images
-- `oumi-ai/walton-multimodal-cold-start-r1-format` - General VQA
-
-**Adding your own dataset**:
-1. Create folder: `mkdir -p data/my_custom_dataset/train`
-2. Add images: Copy `.jpg`, `.png`, etc. to the `train/` folder
-3. Run pipeline: `python scripts/run_pipeline.py --images-dir ./data`
